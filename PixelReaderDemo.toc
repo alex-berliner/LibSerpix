@@ -1,0 +1,11 @@
+## Interface: 100002
+## Version: 10.0.4
+## Title: PixelReaderDemo
+## Author: Monorail
+## Notes:
+## SavedVariables:
+
+lua-pb\lua-pb.xml
+pbstub.lua
+util.lua
+PixelReaderDemo.lua
