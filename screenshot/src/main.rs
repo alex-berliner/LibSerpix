@@ -1,3 +1,6 @@
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc;
+use std::thread;
 use devtimer::run_benchmark;
 
 use std::fs::File;
@@ -289,7 +292,7 @@ fn hex_dump(data: &[u8]) {
     }
 }
 
-fn main() {
+fn read_wow(tx: Sender<Json>) {
     let hwnd = find_window("World of Warcraft").unwrap();
     let mut clock_old:u32 = 9999;
     let mut total_packets = 1.0;
@@ -353,9 +356,19 @@ fn main() {
         let healing = cbor.to_json()["healing"].as_u64().unwrap();
         let overhealing = cbor.to_json()["overhealing"].as_u64().unwrap();
         if healing != 0 || overhealing != 0{
-            println!("{:?}", cbor.to_json());
+            // println!("{:?}", cbor.to_json());
         }
-
         clock_old = clock.into();
+        tx.send(cbor.to_json());
+    }
+}
+
+fn main() {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        read_wow(tx);
+    });
+    for received in rx {
+        println!("outside thread got: {:?}", received);
     }
 }
