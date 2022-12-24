@@ -184,7 +184,7 @@ impl Frame {
     pub fn get_all_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
         let mut pix_vec = Vec::new();
         let mut num_pixels = self.size/3;
-        for i in 2..100 {
+        for i in 2..400 {
             if !Frame::is_data_pixel(i) {
                 continue;
             }
@@ -203,6 +203,7 @@ impl Frame {
             }
         }
         if num_pixels > 0 {
+            println!("Expected {} pixels, got {}", self.size/3, self.size/3-num_pixels);
             return Err("Pixels missing from image");
         }
 
@@ -225,7 +226,7 @@ fn main() {
     let mut clock_old:u32 = 9999;
     loop {
         let mut checksum_cx = 0;
-        let mut s = capture_window(hwnd, Area::Full, 200, 5).unwrap();
+        let mut s = capture_window(hwnd, Area::Full, 400, 3).unwrap();
         // make dependent on pixel width somehow to avoid errors when changing size
         let pixel = s.get_pixel(0,0);
         let header = color_to_integer(pixel);
@@ -255,20 +256,12 @@ fn main() {
             u8vec.push(p[2]);
         }
         // hex_dump(&u8vec);
-        println!("{}", frame.checksum);
+        let mut checksum: u32 = 0;
+        for b in u8vec.iter() {
+            checksum = (checksum+*b as u32)%256;
+            // println!("{}", b);
+        }
+        println!("checksum matches: {}", frame.checksum as u32 == checksum);
         clock_old = clock.into();
-        // if clock == 0 {
-        //     condense_pixels(&frame);
-        // //     for i in 1..(size as u32/3)+1 {
-        // //         let pixel = frame.img.get_pixel(i*3+1,1);
-        // //         println!("{} {:#02x}", i*3+1, pixel[0]);
-        // //         println!("{} {:#02x}", i*3+1, pixel[1]);
-        // //         println!("{} {:#02x}", i*3+1, pixel[2]);
-        // //         // for i in 0..3 {
-        // //         //     checksum_cx = (checksum_cx+pixel[i] as u32)%256;
-        // //         //     data.push(pixel[i]);
-        // //         // }
-        // //     }
-        // }
     }
 }
