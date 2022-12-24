@@ -1,10 +1,10 @@
 ## Interface: 100002
 ## Version: 10.0.4
-## Title: PixelReaderDemo
+## Title: PixelHealerFORK
 ## Author: Monorail
 ## Notes:
 ## SavedVariables:
 
 util.lua
 cbor.lua
-PixelReaderDemo.lua
+PixelHealerFORK.lua
