@@ -11,11 +11,7 @@ local SIZEOF_NUMBER = string.pack and #string.pack('n', 0.0) or 8
 local maxinteger
 local mininteger
 if not jit and _VERSION < 'Lua 5.3' then
-    -- Lua 5.1 & 5.2
-    local loadstring = loadstring or load
-    local luac = string.dump(loadstring "a = 1")
-    local header = { luac:byte(1, 12) }
-    SIZEOF_NUMBER = header[11]
+    SIZEOF_NUMBER = 8 -- block crashes in wow, taken from windows x64
 end
 
 local assert = assert
@@ -25,17 +21,21 @@ local pcall = pcall
 local setmetatable = setmetatable
 local tostring = tostring
 local type = type
-local char = require'string'.char
-local format = require'string'.format
-local floor = require'math'.floor
-local frexp = require'math'.frexp or require'mathx'.frexp
-local ldexp = require'math'.ldexp or require'mathx'.ldexp
-local huge = require'math'.huge
-local tconcat = require'table'.concat
+local char = string.char
+local format = string.format
+local floor = math.floor
+local frexp = math.frexp or mathx.frexp
+local ldexp = math.ldexp or mathx.ldexp
+local huge = math.huge
+local tconcat = table.concat
 local utf8_len = utf8 and utf8.len
 
 local _ENV = nil
 local m = {}
+
+function get_cbor()
+    return m
+end
 
 --[[ debug only
 local function hexadump (s)
