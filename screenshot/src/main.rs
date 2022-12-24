@@ -195,7 +195,7 @@ impl Frame {
 
     pub fn get_all_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
         let mut pix_vec = Vec::new();
-        let mut num_pixels = self.size/3;
+        let mut num_pixels = (self.size as f64/3.0).ceil() as u32;
         for i in 2..400 {
             if !Frame::is_data_pixel(i) {
                 continue;
@@ -215,7 +215,7 @@ impl Frame {
             }
         }
         if num_pixels > 0 {
-            println!("Expected {} pixels, got {}", self.size/3, self.size/3-num_pixels);
+            println!("Expected {} pixels, got {}", (self.size as f64/3.0).ceil() as u32, (self.size as f64/3.0).ceil() as u32-num_pixels);
             return Err("Pixels missing from image");
         }
 
@@ -244,7 +244,7 @@ fn main() {
         // make dependent on pixel width somehow to avoid errors when changing size
         let pixel = match pixel_validate_get(&s, 0) {
             Ok(o) => o,
-            Err(e) => { println!("bad header pixel"); continue; }
+            Err(e) => { println!("bad header pixel"); total_packets = total_packets + 1.0; continue; }
         }; //s.get_pixel(0,0);
         let header = color_to_integer(&pixel);
         let (size, checksum_rx, clock) = decode_header(header);
@@ -265,27 +265,30 @@ fn main() {
         total_packets = total_packets + 1.0;
         let mut myvec = match frame.get_all_pixels() {
             Ok(o) =>  {/* println!("good frame"); */ o },
-            Err(e) => { /* println!("{}", e); */ continue; }
+            Err(e) => { println!("{}", e); continue; }
         };
-        let mut u8vec: Vec<u8> = Vec::new();
+        let mut bytevec: Vec<u8> = Vec::new();
         for p in myvec.iter() {
-            u8vec.push(p[0]);
-            u8vec.push(p[1]);
-            u8vec.push(p[2]);
+            bytevec.push(p[0]);
+            bytevec.push(p[1]);
+            bytevec.push(p[2]);
         }
-        // hex_dump(&u8vec);
+        // hex_dump(&bytevec);
         let mut checksum: u32 = 0;
-        for b in u8vec.iter() {
+        for b in bytevec.iter() {
             checksum = (checksum+*b as u32)%256;
             // println!("{}", b);
         }
         // println!("checksum matches: {}", );
         if frame.checksum as u32 != checksum {
-            // println!("checksum doesn't match");
+            println!("checksum doesn't match");
             continue;
         }
         good_packets = good_packets + 1.0;
         println!("good packets: {}", good_packets/total_packets);
+        // let mut d = Decoder::from_bytes(bytevec);
+        // let items: Vec<(String, i32)> = d.decode().collect::<Result<_, _>>().unwrap();
+
         clock_old = clock.into();
     }
 }

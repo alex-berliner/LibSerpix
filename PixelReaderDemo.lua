@@ -73,6 +73,7 @@ function OnUpdate(self, elapsed)
     local t = cbor.encode(d)
     local checksum = 0
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
+    orig_size = #t
     while (Modulo(#t, 3) ~= 0) do
         t = t .. "\0"
     end
@@ -88,7 +89,7 @@ function OnUpdate(self, elapsed)
         box_index = box_index + 1 -- added for header
         set_texture_from_arr(boxes[box_index], rbgToColor(r,g,b))
     end
-    header = bitshift_left(#t, 16) + bitshift_left(checksum, 8) + clock
+    header = bitshift_left(orig_size, 16) + bitshift_left(checksum, 8) + clock
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
     -- print(#t/3)
@@ -100,8 +101,8 @@ function OnUpdate(self, elapsed)
         end
         -- print("\n")
     end
-    -- print(header)
-    d.ctr = d.ctr + 1
+    print(orig_size)
+    d.ctr = Modulo(d.ctr + 1, 300)
     clock = Modulo(clock+1, 180)
 end
 
