@@ -142,80 +142,21 @@ fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     r * 256 * 256 + g * 256 + b
 }
 
+fn decode_header(header: u32) {
+    let t_size = header >> 16;
+    let box_width = (header >> 8) & 0xff;
+    let clock = header & 0xff;
+
+    println!("num boxes: {}, box_width: {}, clock: {}", t_size, box_width, clock);
+}
+
 fn main() {
     let hwnd = find_window("World of Warcraft").unwrap();
     let mut old = 999999;
     loop {
         let mut s = capture_window(hwnd, Area::Full, 200, 200).unwrap();
-        let pixel = s.get_pixel(5,0);
+        let pixel = s.get_pixel(1,1);
         let c2i1 = color_to_integer(pixel);
-        let pixel = s.get_pixel(15,0);
-        let c2i2 = color_to_integer(pixel);
-        let pixel = s.get_pixel(25,0);
-        let c2i3 = color_to_integer(pixel);
-        if old == 999999 {
-            old = c2i1;
-            continue;
-        }
-        if old == c2i1 {
-            continue;
-        }
-        if c2i1 != old + 1 && c2i1 != 0 {
-            println!("BIG PROBLEM: {} != {}", c2i1, old+1);
-        }
-        if c2i1 == 0 {
-            println!("tick");
-        }
-        old = c2i1;
-        // if old != c2i {
-        // println!("{} {} {} {} -> {}", pixel[0], pixel[1], pixel[2], pixel[3], c2i);
-        // println!("{} {} {}", c2i1, c2i2, c2i3);
-        //     old = c2i;
-        // }
+        decode_header(c2i1);
     }
 }
-
-
-// // extern crate image;
-// extern crate winapi;
-
-// use win_screenshot::addon::*;
-// use win_screenshot::capture::*;
-
-// // use image::{RgbImage, Rgb, Pixel};
-// // use screenshots::Screen;
-
-// use std::{mem, thread, time};
-// use winapi::um::winuser::{GetCursorPos, GetDC};
-// use winapi::um::wingdi::{GetPixel};
-// use winapi::um::winuser::{GetForegroundWindow};
-// // use image::{RgbImage, Rgb, Pixel};
-
-// fn main() {
-//     // Wait for 3 seconds
-//     thread::sleep(time::Duration::from_secs(1));
-//     let hwnd = find_window("World of Warcraft").unwrap();
-//     let s = capture_window(hwnd, Area::Full).unwrap();
-
-//     // // Get the handle to the window device context
-//     // let hwnd = unsafe { GetForegroundWindow() };
-//     // let hdc = unsafe { GetDC(hwnd) };
-
-//     // let width = 100; //(window_rect.right - window_rect.left) as usize;
-//     // let height = 100; //(window_rect.bottom - window_rect.top) as usize;
-
-//     // // Retrieve the pixel colors for each pixel in the window
-//     // let mut img = RgbImage::new(1920, 1080);
-//     // for y in 0..height {
-//     //     for x in 0..width {
-//     //         let pixel_color = unsafe { GetPixel(hdc, x as i32, y as i32) };
-//     //         let r = ((pixel_color & 0x00FF0000) >> 16) as u8;
-//     //         let g = ((pixel_color & 0x0000FF00) >> 8) as u8;
-//     //         let b = (pixel_color & 0x000000FF) as u8;
-//     //         // let p = Rgb([r,g,b]);
-//     //         // let pixel: Pixel = p.into();
-//     //         img.put_pixel(x as u32, y as u32, Rgb([r,g,b]));
-//     //     }
-//     // }
-//     s.save("screenshot.png").unwrap();
-// }
