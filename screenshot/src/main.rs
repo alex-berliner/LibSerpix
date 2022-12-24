@@ -155,6 +155,18 @@ fn all_values_equal<T: PartialEq>(vec: &Vec<T>) -> bool {
     vec.iter().all(|x| x.eq(&vec[0]))
 }
 
+fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32) -> Result<Rgba<u8>, &'static str> {
+    let pixels = (0..3)
+        .filter_map(|y| Some(img.get_pixel(x, y as u32)))
+        .collect::<Vec<_>>();
+
+    if all_values_equal(&pixels) {
+        Ok(*pixels[0])
+    } else {
+        Err("Not all values in the Vec are equal")
+    }
+}
+
 struct Frame {
     size: u8,
     checksum: u8,
@@ -224,12 +236,17 @@ fn hex_dump(data: &[u8]) {
 fn main() {
     let hwnd = find_window("World of Warcraft").unwrap();
     let mut clock_old:u32 = 9999;
+    let mut total_packets = 1.0;
+    let mut good_packets = 1.0;
     loop {
         let mut checksum_cx = 0;
         let mut s = capture_window(hwnd, Area::Full, 400, 3).unwrap();
         // make dependent on pixel width somehow to avoid errors when changing size
-        let pixel = s.get_pixel(0,0);
-        let header = color_to_integer(pixel);
+        let pixel = match pixel_validate_get(&s, 0) {
+            Ok(o) => o,
+            Err(e) => { println!("bad header pixel"); continue; }
+        }; //s.get_pixel(0,0);
+        let header = color_to_integer(&pixel);
         let (size, checksum_rx, clock) = decode_header(header);
         // println!("{}", size);
         let mut frame = Frame {
@@ -245,9 +262,10 @@ fn main() {
             // println!("same clock clock_old {} clock {}", clock_old , clock );
             continue;
         }
+        total_packets = total_packets + 1.0;
         let mut myvec = match frame.get_all_pixels() {
             Ok(o) =>  {/* println!("good frame"); */ o },
-            Err(e) => { println!("{}", e); continue; }
+            Err(e) => { /* println!("{}", e); */ continue; }
         };
         let mut u8vec: Vec<u8> = Vec::new();
         for p in myvec.iter() {
@@ -261,7 +279,13 @@ fn main() {
             checksum = (checksum+*b as u32)%256;
             // println!("{}", b);
         }
-        println!("checksum matches: {}", frame.checksum as u32 == checksum);
+        // println!("checksum matches: {}", );
+        if frame.checksum as u32 != checksum {
+            // println!("checksum doesn't match");
+            continue;
+        }
+        good_packets = good_packets + 1.0;
+        println!("good packets: {}", good_packets/total_packets);
         clock_old = clock.into();
     }
 }

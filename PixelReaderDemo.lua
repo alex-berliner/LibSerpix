@@ -102,7 +102,7 @@ function OnUpdate(self, elapsed)
     end
     -- print(header)
     d.ctr = d.ctr + 1
-    clock = Modulo(clock+1, 256)
+    clock = Modulo(clock+1, 180)
 end
 
 init()
