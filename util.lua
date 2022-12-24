@@ -1,5 +1,14 @@
 MAX_PIXEL_SIZE = 256 * 256 * 256 - 1
 FLOAT_MAX = 9.99999
+
+function bitshift_left(n, k)
+    local result = n
+    for i = 1, k do
+      result = result + result
+    end
+    return result
+  end
+
 function set_texture_from_arr(t, c)
     t.Texture:SetColorTexture(c[1], c[2], c[3])
 end

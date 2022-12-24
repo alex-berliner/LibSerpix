@@ -5,7 +5,6 @@
 ## Notes:
 ## SavedVariables:
 
-lua-pb\lua-pb.xml
-pbstub.lua
 util.lua
+cbor.lua
 PixelReaderDemo.lua

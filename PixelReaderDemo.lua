@@ -1,5 +1,6 @@
-local BOX_WIDTH = 10
-local BOX_HEIGHT = 10
+-- Notes: max table size is 300
+local BOX_WIDTH = 3
+local BOX_HEIGHT = 3
 -- max pixel boxes, most will usually be turned off.
 -- no cost to increasing this besides increased screen real estate
 local NUM_BOXES = 100
@@ -9,25 +10,19 @@ local NUM_BOXES = 100
 local boxes = {}
 local _, ADDONSELF = ...
 
+local cbor = get_cbor()
+
 function init()
-    init_my_protobuf()
+    print("init")
+    init_my_serialized_data()
     create_boxes()
+    UIParent:SetScript("OnUpdate", OnUpdate)
 end
 
-function init_my_protobuf()
-    local luapb = ADDONSELF.luapb
-    local person = luapb.load_proto_ast(ADDONSELF.pbperson).Person
-
-    msg0 = person()
-
-    msg0.checksum = 0;
-
-    local t = msg0:Serialize()
-
-    assert(#t > 0, "size of t > 0")
-
-    local msg1 = person()
-    msg1:Parse(t)
+function init_my_serialized_data()
+    h = {sz = 0, cs=0, px=BOX_WIDTH}
+    b = {a=1}
+    d = {h=h, b=b}
 end
 
 function create_boxes()
@@ -67,25 +62,31 @@ function show_boxes(n)
 end
 
 function OnUpdate(self, elapsed)
-    local t = msg0:Serialize()
+    local t = cbor.encode(d)
+    -- data.st = data.st.."a"
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     while (Modulo(#t, 3) ~= 0) do
         t = t .. "\0"
     end
+    -- cbor isn't ordered so keep header as first pixel
+    header = bitshift_left(#t, 12) + BOX_WIDTH
+    -- print(header)
+    set_texture_from_arr(boxes[1], integerToColor(header))
+    print(#t)
     for i = 1, #t, 3 do
         local r = string.byte(t, i)
         local g = string.byte(t, i+1)
         local b = string.byte(t, i+2)
         box_index = math.floor(i/3)+1
+        box_index = box_index + 1 -- added for header
         set_texture_from_arr(boxes[box_index], rbgToColor(r,g,b))
     end
-    show_boxes(#t/3)
+    show_boxes(1+(#t/3))
     -- msg0.name = msg0.name .. string.char(string.byte('a') + Modulo(msg0.ctr1, 26))
     -- msg0.ctr1=Modulo(msg0.ctr1+1, 100)
     -- msg0.ctr2=Modulo(msg0.ctr2+1, 100)
     -- msg0.ctr3=Modulo(msg0.ctr3+1, 100)
-    print(#t)
+    -- print(#t)
 end
 
-UIParent:SetScript("OnUpdate", OnUpdate)
 init()
