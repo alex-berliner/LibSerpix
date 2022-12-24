@@ -1,4 +1,6 @@
-use devtimer::run_benchmark;
+use std::io::{BufRead, BufReader};
+
+use cbor::{Decoder, Encoder};
 
 use image::imageops::flip_vertical;
 use image::{ImageBuffer, Rgba};
@@ -141,22 +143,132 @@ fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     let b = pixel[2] as u32;
     r * 256 * 256 + g * 256 + b
 }
+fn decode_header(header: u32) -> (u8, u8, u8) {
+    let size = (header >> 16) as u8;
+    let checksum = ((header >> 8) & 0xff) as u8;
+    let clock = (header & 0xff) as u8;
 
-fn decode_header(header: u32) {
-    let t_size = header >> 16;
-    let box_width = (header >> 8) & 0xff;
-    let clock = header & 0xff;
+    (size, checksum, clock)
+}
 
-    println!("num boxes: {}, box_width: {}, clock: {}", t_size, box_width, clock);
+fn all_values_equal<T: PartialEq>(vec: &Vec<T>) -> bool {
+    vec.iter().all(|x| x.eq(&vec[0]))
+}
+
+struct Frame {
+    size: u8,
+    checksum: u8,
+    clock: u8,
+    width: u8,
+    height: u8,
+    img: ImageBuffer<Rgba<u8>, Vec<u8>>,
+}
+impl Frame {
+    pub fn pixel_validate_get(&mut self, x: u32) -> Result<Rgba<u8>, &'static str> {
+        let pixels = (0..self.height)
+            .filter_map(|y| Some(self.img.get_pixel(x, y as u32)))
+            .collect::<Vec<_>>();
+
+        if all_values_equal(&pixels) {
+            Ok(*pixels[0])
+        } else {
+            Err("Not all values in the Vec are equal")
+        }
+    }
+
+    fn is_data_pixel(i: u32) -> bool {
+        let x = i%5;
+        x == 0 || x == 3
+    }
+
+    pub fn get_all_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
+        let mut pix_vec = Vec::new();
+        let mut num_pixels = self.size/3;
+        for i in 2..100 {
+            if !Frame::is_data_pixel(i) {
+                continue;
+            }
+            let pixel = match self.pixel_validate_get(i) {
+                Ok(p) => {
+                    num_pixels -= 1;
+                    p
+                },
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+            pix_vec.push(pixel);
+            if num_pixels < 1 {
+                break;
+            }
+        }
+        if num_pixels > 0 {
+            return Err("Pixels missing from image");
+        }
+
+        Ok(pix_vec)
+    }
+}
+fn hex_dump(data: &[u8]) {
+    println!("{}", data.len());
+    for chunk in data.chunks(16) {
+        print!("{:08x}  ", data.as_ptr() as usize);
+        for &byte in chunk {
+            print!("{:02x} ", byte);
+        }
+        println!();
+    }
 }
 
 fn main() {
     let hwnd = find_window("World of Warcraft").unwrap();
-    let mut old = 999999;
+    let mut clock_old:u32 = 9999;
     loop {
-        let mut s = capture_window(hwnd, Area::Full, 200, 200).unwrap();
-        let pixel = s.get_pixel(1,1);
-        let c2i1 = color_to_integer(pixel);
-        decode_header(c2i1);
+        let mut checksum_cx = 0;
+        let mut s = capture_window(hwnd, Area::Full, 200, 5).unwrap();
+        // make dependent on pixel width somehow to avoid errors when changing size
+        let pixel = s.get_pixel(0,0);
+        let header = color_to_integer(pixel);
+        let (size, checksum_rx, clock) = decode_header(header);
+        // println!("{}", size);
+        let mut frame = Frame {
+            size: size,
+            checksum: checksum_rx,
+            clock: clock,
+            width: 1,
+            height: 3,
+            img: s
+        };
+        if clock_old == clock.into() {
+            // not necessary to warn, rust just reads really fast
+            // println!("same clock clock_old {} clock {}", clock_old , clock );
+            continue;
+        }
+        let mut myvec = match frame.get_all_pixels() {
+            Ok(o) =>  {/* println!("good frame"); */ o },
+            Err(e) => { println!("{}", e); continue; }
+        };
+        let mut u8vec: Vec<u8> = Vec::new();
+        for p in myvec.iter() {
+            u8vec.push(p[0]);
+            u8vec.push(p[1]);
+            u8vec.push(p[2]);
+        }
+        // hex_dump(&u8vec);
+        println!("{}", frame.checksum);
+        clock_old = clock.into();
+        // if clock == 0 {
+        //     condense_pixels(&frame);
+        // //     for i in 1..(size as u32/3)+1 {
+        // //         let pixel = frame.img.get_pixel(i*3+1,1);
+        // //         println!("{} {:#02x}", i*3+1, pixel[0]);
+        // //         println!("{} {:#02x}", i*3+1, pixel[1]);
+        // //         println!("{} {:#02x}", i*3+1, pixel[2]);
+        // //         // for i in 0..3 {
+        // //         //     checksum_cx = (checksum_cx+pixel[i] as u32)%256;
+        // //         //     data.push(pixel[i]);
+        // //         // }
+        // //     }
+        // }
     }
 }
