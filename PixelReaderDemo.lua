@@ -61,6 +61,8 @@ function show_boxes(n)
     boxes["active_boxes"] = n
 end
 
+local clock = 0
+
 function OnUpdate(self, elapsed)
     local t = cbor.encode(d)
     -- data.st = data.st.."a"
@@ -69,7 +71,7 @@ function OnUpdate(self, elapsed)
         t = t .. "\0"
     end
     -- cbor isn't ordered so keep header as first pixel
-    header = bitshift_left(#t, 12) + BOX_WIDTH
+    header = bitshift_left(#t, 16) + bitshift_left(BOX_WIDTH, 8) + clock
     -- print(header)
     set_texture_from_arr(boxes[1], integerToColor(header))
     print(#t)
@@ -82,11 +84,7 @@ function OnUpdate(self, elapsed)
         set_texture_from_arr(boxes[box_index], rbgToColor(r,g,b))
     end
     show_boxes(1+(#t/3))
-    -- msg0.name = msg0.name .. string.char(string.byte('a') + Modulo(msg0.ctr1, 26))
-    -- msg0.ctr1=Modulo(msg0.ctr1+1, 100)
-    -- msg0.ctr2=Modulo(msg0.ctr2+1, 100)
-    -- msg0.ctr3=Modulo(msg0.ctr3+1, 100)
-    -- print(#t)
+    clock = Modulo(clock+1, 256)
 end
 
 init()
