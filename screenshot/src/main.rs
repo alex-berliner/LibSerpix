@@ -1,3 +1,4 @@
+use rustc_serialize::json::{Json, ToJson};
 use std::io::{BufRead, BufReader};
 
 use cbor::{Decoder, Encoder};
@@ -248,7 +249,7 @@ fn main() {
         }; //s.get_pixel(0,0);
         let header = color_to_integer(&pixel);
         let (size, checksum_rx, clock) = decode_header(header);
-        // println!("{}", size);
+        println!("{}", size);
         let mut frame = Frame {
             size: size,
             checksum: checksum_rx,
@@ -273,21 +274,25 @@ fn main() {
             bytevec.push(p[1]);
             bytevec.push(p[2]);
         }
-        // hex_dump(&bytevec);
+        // remove bytes padded from pixels always being 3 bytes
+        while bytevec.len() > size.into() {
+            bytevec.pop();
+        }
         let mut checksum: u32 = 0;
         for b in bytevec.iter() {
             checksum = (checksum+*b as u32)%256;
-            // println!("{}", b);
         }
-        // println!("checksum matches: {}", );
         if frame.checksum as u32 != checksum {
             println!("checksum doesn't match");
             continue;
         }
         good_packets = good_packets + 1.0;
-        println!("good packets: {}", good_packets/total_packets);
-        // let mut d = Decoder::from_bytes(bytevec);
-        // let items: Vec<(String, i32)> = d.decode().collect::<Result<_, _>>().unwrap();
+        // println!("good packets: {}", good_packets/total_packets);
+        // hex_dump(&bytevec);
+        let mut d = Decoder::from_bytes(bytevec);
+        let cbor = d.items().next().unwrap().unwrap();
+        // println!("{}", cbor.to_json()["a"].to_string().len());
+        println!("{:?}", cbor.to_json());
 
         clock_old = clock.into();
     }

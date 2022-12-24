@@ -48,27 +48,46 @@ function create_boxes()
     end
     boxes["active_boxes"] = NUM_BOXES
     boxes["max_boxes"] = NUM_BOXES
-    -- print("num boxes "..tostring(#boxes))
-    -- print('boxes["active_boxes"]: '..tostring(boxes["active_boxes"]))
-    -- print('boxes["max_boxes"]: '..tostring(boxes["max_boxes"]))
 end
 
 function show_boxes(n)
     for i = 1, n do
-        -- print("show "..tostring(i))
         boxes[i]:Show()
     end
     for i = n+1, NUM_BOXES do
-        -- print("hide "..tostring(i))
         boxes[i]:Hide()
     end
     boxes["active_boxes"] = n
 end
 
+-- https://gist.github.com/Elemecca/6361899
+function hex_dump (str, len)
+    local dump = ""
+    local hex = ""
+    local asc = ""
+
+    for i = 1, len do
+        if 1 == i % 8 then
+            dump = dump .. hex .. asc .. "\n"
+            hex = string.format( "%04x: ", i - 1 )
+            asc = ""
+        end
+
+        local ord = string.byte( str, i )
+        hex = hex .. string.format( "%02x ", ord )
+        if ord >= 32 and ord <= 126 then
+            asc = asc .. string.char( ord )
+        else
+            asc = asc .. "."
+        end
+    end
+
+
+    return dump .. hex
+            .. string.rep( "   ", 8 - len % 8 ) .. asc
+end
+
 local clock = 0
--- header
--- num_boxes:8; 24-8
--- width
 function OnUpdate(self, elapsed)
     local t = cbor.encode(d)
     local checksum = 0
@@ -77,7 +96,8 @@ function OnUpdate(self, elapsed)
     while (Modulo(#t, 3) ~= 0) do
         t = t .. "\0"
     end
-    -- cbor isn't ordered so keep header as first pixel
+    -- pack string bytes into pixels
+    -- cbor table isn't ordered so keep header as first pixel
     for i = 1, #t, 3 do
         local r = string.byte(t, i)
         checksum = Modulo(checksum+r, 256)
@@ -92,17 +112,6 @@ function OnUpdate(self, elapsed)
     header = bitshift_left(orig_size, 16) + bitshift_left(checksum, 8) + clock
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
-    -- print(#t/3)
-    if clock == 0 then
-        for i = 1, #t do
-            local byte = string.byte(t, i)
-            local hex_char = string.format("%x", string.byte(t, i))
-            -- print(tostring(i)..": 0x"..hex_char)
-        end
-        -- print("\n")
-    end
-    print(orig_size)
-    d.ctr = Modulo(d.ctr + 1, 300)
     clock = Modulo(clock+1, 180)
 end
 

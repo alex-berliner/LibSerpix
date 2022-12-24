@@ -10,3 +10,4 @@ image = "0.24"
 windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps"] }
 win-screenshot = "2.0.0"
 cbor = "0.4.1"
+rustc-serialize = "0.3.24"
