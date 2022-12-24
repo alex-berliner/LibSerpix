@@ -20,13 +20,7 @@ function init_my_protobuf()
 
     msg0 = person()
 
-    msg0.name = "hello my name is frank i am 21 years old"
-    msg0.id = 1
-    msg0.ctr1 = 0
-    msg0.ctr2 = 1
-    msg0.ctr3 = 2
-
-    print("serialize: name " .. msg0.name .. " id " .. msg0.id)
+    msg0.checksum = 0;
 
     local t = msg0:Serialize()
 
@@ -34,13 +28,8 @@ function init_my_protobuf()
 
     local msg1 = person()
     msg1:Parse(t)
-
-    assert(msg1.name == msg0.name, "name not equal")
-    assert(msg1.id == msg0.id, "id not equal")
-
-    print("deserialize: name " .. msg1.name .. " id " .. msg1.id)
-
 end
+
 function create_boxes()
     local function create_box(w,h,x,y)
         p = CreateFrame("Frame", nil, UIParent)
@@ -67,7 +56,7 @@ end
 
 function show_boxes(n)
     for i = 1, n do
-        print("show "..tostring(i))
+        -- print("show "..tostring(i))
         boxes[i]:Show()
     end
     for i = n+1, NUM_BOXES do
@@ -91,10 +80,10 @@ function OnUpdate(self, elapsed)
         set_texture_from_arr(boxes[box_index], rbgToColor(r,g,b))
     end
     show_boxes(#t/3)
-    msg0.name = msg0.name .. string.char(string.byte('a') + Modulo(msg0.ctr1, 26))
-    msg0.ctr1=Modulo(msg0.ctr1+1, 100)
-    msg0.ctr2=Modulo(msg0.ctr2+1, 100)
-    msg0.ctr3=Modulo(msg0.ctr3+1, 100)
+    -- msg0.name = msg0.name .. string.char(string.byte('a') + Modulo(msg0.ctr1, 26))
+    -- msg0.ctr1=Modulo(msg0.ctr1+1, 100)
+    -- msg0.ctr2=Modulo(msg0.ctr2+1, 100)
+    -- msg0.ctr3=Modulo(msg0.ctr3+1, 100)
     print(#t)
 end
 
