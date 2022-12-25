@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::mpsc;
 use std::thread;
@@ -316,7 +317,7 @@ fn read_wow(tx: Sender<Json>) {
             height: pixel_height,
             img: s
         };
-        if clock_old == clock.into() {
+        if clock_old == clock as u32 {
             // not necessary to warn, rust just reads really fast
             // println!("same clock clock_old {} clock {}", clock_old , clock );
             continue;
@@ -363,12 +364,106 @@ fn read_wow(tx: Sender<Json>) {
     }
 }
 
-fn main() {
+// fn main() {
+//     let (tx, rx) = mpsc::channel();
+//     thread::spawn(move || {
+//         read_wow(tx);
+//     });
+//     for received in rx {
+//         println!("outside thread got: {:?}", received);
+//     }
+// }
+use buttplug::{
+    client::{ButtplugClientDevice, ButtplugClientEvent, VibrateCommand},
+    util::in_process_client,
+  };
+use std::{sync::Arc, time::Duration};
+use tokio::time::sleep;
+
+async fn device_control_example() {
+    println!("starting control example");
+  // Onto the final example! Controlling devices.
+
+  // Instead of setting up our own connector for this example, we'll use the
+  // connect_in_process convenience method. This creates an in process connector
+  // for us, and also adds all of the device managers built into the library to
+  // the server it uses. Handy!
+  let client = in_process_client("Test Client", false).await;
+  let mut event_stream = client.event_stream();
+
+  // We'll mostly be doing the same thing we did in example #3, up until we get
+  // a device.
+  if let Err(err) = client.start_scanning().await {
+    println!("Client errored when starting scan! {}", err);
+    return;
+  }
+
+  let vibrate_device = |dev: Arc<ButtplugClientDevice>| {
+    async move {
+      if dev.message_attributes().scalar_cmd().is_some() {
+        if let Err(e) = dev.vibrate(&VibrateCommand::Speed(1.0)).await {
+          println!("Error sending vibrate command to device! {}", e);
+          return;
+        }
+        println!("{} should start vibrating!", dev.name());
+        sleep(Duration::from_secs(1)).await;
+        if let Err(e) = dev.stop().await {
+          println!("Error sending stop command to device! {}", e);
+          return;
+        }
+        println!("{} should stop vibrating!", dev.name());
+        sleep(Duration::from_secs(1)).await;
+      } else {
+        println!("{} doesn't vibrate! This example should be updated to handle rotation and linear movement!", dev.name());
+      }
+    }
+  };
+
+  loop {
+    match event_stream
+      .next()
+      .await
+      .expect("We own the client so the event stream shouldn't die.")
+    {
+      ButtplugClientEvent::DeviceAdded(dev) => {
+        println!("We got a device: {}", dev.name());
+        let fut = vibrate_device(dev);
+        tokio::spawn(async move {
+          fut.await;
+        });
+        // break;
+      }
+      ButtplugClientEvent::ServerDisconnect => {
+        // The server disconnected, which means we're done here, so just
+        // break up to the top level.
+        println!("Server disconnected!");
+        break;
+      }
+      _ => {
+        // Something else happened, like scanning finishing, devices
+        // getting removed, etc... Might as well say something about it.
+        println!("Got some other kind of event we don't care about");
+      }
+    }
+  }
+
+  // And now we're done!
+  println!("Exiting example");
+}
+
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
+    tokio::spawn(async move {
         read_wow(tx);
     });
+    println!("past thread");
+    tokio::spawn(async move {
+        device_control_example().await;
+    });
     for received in rx {
-        println!("outside thread got: {:?}", received);
+        // println!("outside thread got: {:?}", received);
     }
-}
+    Ok(())
+  }
