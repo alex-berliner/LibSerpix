@@ -371,20 +371,55 @@ use buttplug::{
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 
+// use std::thread::sleep;
+// use std::time::{Duration, Instant};
 async fn use_dev(dev: &ButtplugClientDevice, mut rx: Receiver<Json>) {
+    let frame_duration = std::time::Duration::from_millis(1000 / 60); // Target duration for each frame
     println!("We got a device: {}", dev.name());
+    let mut vibe_strength:f64 = 0.0;
     loop {
+        let start = std::time::Instant::now(); // Record the start time of the loop
+
         match rx.try_recv() {
             Ok(message) => {
-                println!("rx rx");
-                if let Err(e) = dev.vibrate(&VibrateCommand::Speed(0.5)).await {
-                    println!("Error sending vibrate command to device! {}", e);
+                // println!("{:?}", message["healing"].as_u64().unwrap());
+                // println!("{:?}", message["overhealing"].as_u64().unwrap());
+                let healing = message["healing"].as_u64().unwrap() as f64;
+                // println!("+% {}", healing/160000.0/1.5);
+                vibe_strength = (vibe_strength + healing/160000.0/1.5).min(1.0);
+                let overhealing = message["overhealing"].as_u64().unwrap() as f64;
+                if vibe_strength < 20.0 {
+                    vibe_strength = (vibe_strength + (overhealing/160000.0/1.5)).min(0.2)
                 }
-                sleep(Duration::from_secs(1)).await;
-                dev.stop().await;
+
+                // println!("rx rx");
+                // sleep(Duration::from_secs(1)).await;
             },
             Err(_) => {},
         }
+        if vibe_strength > 0.02 {
+            if let Err(e) = dev.vibrate(&VibrateCommand::Speed(vibe_strength)).await {
+                println!("Error sending vibrate command to device! {}", e);
+            }
+        } else {
+            dev.stop().await;
+        }
+
+        // if float_cmp::approx_eq!(f64, vibe_strength, 1.0, ulps = 2) {
+        //     vibe_strength = 0.99999;
+        // }
+        vibe_strength *= 0.991;
+        println!("vibe_strength: {}", vibe_strength);
+        if vibe_strength < 0.02 {
+            vibe_strength = 0.0;
+        }
+        let elapsed = start.elapsed(); // Calculate the elapsed time since the start of the loop
+        let sleep_duration = if elapsed < frame_duration {
+            frame_duration - elapsed
+        } else {
+            std::time::Duration::new(0, 0)
+        };
+        std::thread::sleep(sleep_duration);
     }
 }
 
