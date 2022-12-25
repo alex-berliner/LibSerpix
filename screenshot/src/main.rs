@@ -1,6 +1,5 @@
+use tokio::sync::mpsc::{Sender, Receiver, channel};
 use futures::StreamExt;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::mpsc;
 use std::thread;
 use devtimer::run_benchmark;
 
@@ -293,7 +292,7 @@ fn hex_dump(data: &[u8]) {
     }
 }
 
-fn read_wow(tx: Sender<Json>) {
+async fn read_wow(tx: Sender<Json>) {
     let hwnd = find_window("World of Warcraft").unwrap();
     let mut clock_old:u32 = 9999;
     let mut total_packets = 1.0;
@@ -358,21 +357,13 @@ fn read_wow(tx: Sender<Json>) {
         let overhealing = cbor.to_json()["overhealing"].as_u64().unwrap();
         if healing != 0 || overhealing != 0{
             // println!("{:?}", cbor.to_json());
+            tx.send(cbor.to_json()).await;
+            // println!("OVER TO TX");
         }
         clock_old = clock.into();
-        tx.send(cbor.to_json());
     }
 }
 
-// fn main() {
-//     let (tx, rx) = mpsc::channel();
-//     thread::spawn(move || {
-//         read_wow(tx);
-//     });
-//     for received in rx {
-//         println!("outside thread got: {:?}", received);
-//     }
-// }
 use buttplug::{
     client::{ButtplugClientDevice, ButtplugClientEvent, VibrateCommand},
     util::in_process_client,
@@ -380,7 +371,24 @@ use buttplug::{
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 
-async fn device_control_example() {
+async fn use_dev(dev: &ButtplugClientDevice, mut rx: Receiver<Json>) {
+    println!("We got a device: {}", dev.name());
+    loop {
+        match rx.try_recv() {
+            Ok(message) => {
+                println!("rx rx");
+                if let Err(e) = dev.vibrate(&VibrateCommand::Speed(0.5)).await {
+                    println!("Error sending vibrate command to device! {}", e);
+                }
+                sleep(Duration::from_secs(1)).await;
+                dev.stop().await;
+            },
+            Err(_) => {},
+        }
+    }
+}
+
+async fn device_control_example(mut rx: Receiver<Json>) {
     println!("starting control example");
   // Onto the final example! Controlling devices.
 
@@ -397,47 +405,17 @@ async fn device_control_example() {
     println!("Client errored when starting scan! {}", err);
     return;
   }
-
-  let vibrate_device = |dev: Arc<ButtplugClientDevice>| {
-    async move {
-      if dev.message_attributes().scalar_cmd().is_some() {
-        if let Err(e) = dev.vibrate(&VibrateCommand::Speed(1.0)).await {
-          println!("Error sending vibrate command to device! {}", e);
-          return;
-        }
-        println!("{} should start vibrating!", dev.name());
-        sleep(Duration::from_secs(1)).await;
-        if let Err(e) = dev.stop().await {
-          println!("Error sending stop command to device! {}", e);
-          return;
-        }
-        println!("{} should stop vibrating!", dev.name());
-        sleep(Duration::from_secs(1)).await;
-      } else {
-        println!("{} doesn't vibrate! This example should be updated to handle rotation and linear movement!", dev.name());
-      }
-    }
-  };
-
-  loop {
-    match event_stream
-      .next()
-      .await
+    match event_stream.next().await
       .expect("We own the client so the event stream shouldn't die.")
     {
       ButtplugClientEvent::DeviceAdded(dev) => {
-        println!("We got a device: {}", dev.name());
-        let fut = vibrate_device(dev);
-        tokio::spawn(async move {
-          fut.await;
-        });
-        // break;
+        use_dev(&dev, rx).await;
       }
       ButtplugClientEvent::ServerDisconnect => {
         // The server disconnected, which means we're done here, so just
         // break up to the top level.
         println!("Server disconnected!");
-        break;
+        // break;
       }
       _ => {
         // Something else happened, like scanning finishing, devices
@@ -445,7 +423,6 @@ async fn device_control_example() {
         println!("Got some other kind of event we don't care about");
       }
     }
-  }
 
   // And now we're done!
   println!("Exiting example");
@@ -454,16 +431,15 @@ async fn device_control_example() {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, mut rx) = channel(100);
     tokio::spawn(async move {
-        read_wow(tx);
+        read_wow(tx).await;
     });
-    println!("past thread");
-    tokio::spawn(async move {
-        device_control_example().await;
-    });
-    for received in rx {
-        // println!("outside thread got: {:?}", received);
-    }
+    // tokio::spawn(async move {
+        device_control_example(rx).await;
+    // });
+    // for received in rx {
+    //     // println!("outside thread got: {:?}", received);
+    // }
     Ok(())
   }
