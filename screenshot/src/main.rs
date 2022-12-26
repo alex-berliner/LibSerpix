@@ -165,18 +165,6 @@ fn all_values_equal<T: PartialEq>(vec: &Vec<T>) -> bool {
     vec.iter().all(|x| x.eq(&vec[0]))
 }
 
-// fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32) -> Result<Rgba<u8>, &'static str> {
-//     let pixels = (0..3)
-//         .filter_map(|y| Some(img.get_pixel(x, y as u32)))
-//         .collect::<Vec<_>>();
-
-//     if all_values_equal(&pixels) {
-//         Ok(*pixels[0])
-//     } else {
-//         Err("HEADER Not all values in the Vec are equal")
-//     }
-// }
-
 fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8) -> Result<Rgba<u8>, &'static str> {
     let pixels = (0..height)
         .filter_map(|y| Some(img.get_pixel(x, y as u32)))
@@ -281,16 +269,6 @@ impl Frame {
         Ok(pix_vec)
     }
 }
-fn hex_dump(data: &[u8]) {
-    println!("{}", data.len());
-    for chunk in data.chunks(16) {
-        print!("{:08x}  ", data.as_ptr() as usize);
-        for &byte in chunk {
-            print!("{:02x} ", byte);
-        }
-        println!();
-    }
-}
 
 async fn read_wow(tx: Sender<Json>) {
     let hwnd = find_window("World of Warcraft").unwrap();
@@ -345,142 +323,23 @@ async fn read_wow(tx: Sender<Json>) {
             continue;
         }
         good_packets = good_packets + 1.0;
-        // println!("good packets: {}", good_packets/total_packets);
-        // hex_dump(&bytevec);
         let mut d = Decoder::from_bytes(bytevec);
         let cbor = match d.items().next().unwrap() {
             Ok(o) => o,
             Err(e) => {println!("{}", e); continue;}
         };
-        // println!("{}", cbor.to_json()["healing"].to_string());
-        let healing = cbor.to_json()["healing"].as_u64().unwrap();
-        let overhealing = cbor.to_json()["overhealing"].as_u64().unwrap();
-        if healing != 0 || overhealing != 0{
-            // println!("{:?}", cbor.to_json());
-            tx.send(cbor.to_json()).await;
-            // println!("OVER TO TX");
-        }
+        tx.send(cbor.to_json()).await;
         clock_old = clock.into();
     }
 }
 
-use buttplug::{
-    client::{ButtplugClientDevice, ButtplugClientEvent, VibrateCommand},
-    util::in_process_client,
-  };
-use std::{sync::Arc, time::Duration};
-use tokio::time::sleep;
-
-// use std::thread::sleep;
-// use std::time::{Duration, Instant};
-async fn use_dev(dev: &ButtplugClientDevice, mut rx: Receiver<Json>) {
-    let frame_duration = std::time::Duration::from_millis(1000 / 60); // Target duration for each frame
-    println!("We got a device: {}", dev.name());
-    let mut vibe_strength:f64 = 0.20;
-    let tick:f64 = 60.0/1000.0/40.0/* /1000.0 */;
-    loop {
-        let start = std::time::Instant::now(); // Record the start time of the loop
-
-        match rx.try_recv() {
-            Ok(message) => {
-                // println!("{:?}", message["healing"].as_u64().unwrap());
-                // println!("{:?}", message["overhealing"].as_u64().unwrap());
-                let healing = message["healing"].as_u64().unwrap() as f64;
-                // println!("+% {}", healing/160000.0/1.5);
-                vibe_strength = (vibe_strength + healing/160000.0).min(1.0);
-                let overhealing = message["overhealing"].as_u64().unwrap() as f64;
-                if vibe_strength < 20.0 {
-                    vibe_strength += 0.50*((overhealing/160000.0))
-                }
-
-                // println!("rx rx");
-                // sleep(Duration::from_secs(1)).await;
-            },
-            Err(_) => {},
-        }
-        if vibe_strength > 0.02 {
-            if let Err(e) = dev.vibrate(&VibrateCommand::Speed(vibe_strength)).await {
-                println!("Error sending vibrate command to device! {}", e);
-            }
-        } else {
-            dev.stop().await;
-        }
-
-        // if float_cmp::approx_eq!(f64, vibe_strength, 1.0, ulps = 2) {
-        //     vibe_strength = 0.99999;
-        // }
-        if vibe_strength > 0.0 {
-            vibe_strength -= tick;//*= 0.995;
-            println!("vibe_strength: {}", vibe_strength);
-        }
-        if vibe_strength < 0.0 {
-            vibe_strength = 0.0;
-        }
-        if vibe_strength < 0.01 {
-            vibe_strength = 0.0;
-        }
-        let elapsed = start.elapsed(); // Calculate the elapsed time since the start of the loop
-        let sleep_duration = if elapsed < frame_duration {
-            frame_duration - elapsed
-        } else {
-            std::time::Duration::new(0, 0)
-        };
-        std::thread::sleep(sleep_duration);
-    }
-}
-
-async fn device_control_example(mut rx: Receiver<Json>) {
-    println!("starting control example");
-  // Onto the final example! Controlling devices.
-
-  // Instead of setting up our own connector for this example, we'll use the
-  // connect_in_process convenience method. This creates an in process connector
-  // for us, and also adds all of the device managers built into the library to
-  // the server it uses. Handy!
-  let client = in_process_client("Test Client", false).await;
-  let mut event_stream = client.event_stream();
-  println!("zop");
-  // We'll mostly be doing the same thing we did in example #3, up until we get
-  // a device.
-  if let Err(err) = client.start_scanning().await {
-    println!("Client errored when starting scan! {}", err);
-    return;
-  }
-    match event_stream.next().await
-      .expect("We own the client so the event stream shouldn't die.")
-    {
-      ButtplugClientEvent::DeviceAdded(dev) => {
-        use_dev(&dev, rx).await;
-      }
-      ButtplugClientEvent::ServerDisconnect => {
-        // The server disconnected, which means we're done here, so just
-        // break up to the top level.
-        println!("Server disconnected!");
-        // break;
-      }
-      _ => {
-        // Something else happened, like scanning finishing, devices
-        // getting removed, etc... Might as well say something about it.
-        println!("Got some other kind of event we don't care about");
-      }
-    }
-
-  // And now we're done!
-  println!("Exiting example");
-}
-
-
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     let (tx, mut rx) = channel(100);
     tokio::spawn(async move {
         read_wow(tx).await;
     });
-    // tokio::spawn(async move {
-        device_control_example(rx).await;
-    // });
     // for received in rx {
     //     // println!("outside thread got: {:?}", received);
     // }
-    Ok(())
-  }
+}
