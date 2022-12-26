@@ -376,7 +376,8 @@ use tokio::time::sleep;
 async fn use_dev(dev: &ButtplugClientDevice, mut rx: Receiver<Json>) {
     let frame_duration = std::time::Duration::from_millis(1000 / 60); // Target duration for each frame
     println!("We got a device: {}", dev.name());
-    let mut vibe_strength:f64 = 0.0;
+    let mut vibe_strength:f64 = 0.20;
+    let tick:f64 = 60.0/1000.0/40.0/* /1000.0 */;
     loop {
         let start = std::time::Instant::now(); // Record the start time of the loop
 
@@ -386,10 +387,10 @@ async fn use_dev(dev: &ButtplugClientDevice, mut rx: Receiver<Json>) {
                 // println!("{:?}", message["overhealing"].as_u64().unwrap());
                 let healing = message["healing"].as_u64().unwrap() as f64;
                 // println!("+% {}", healing/160000.0/1.5);
-                vibe_strength = (vibe_strength + healing/160000.0/1.5).min(1.0);
+                vibe_strength = (vibe_strength + healing/160000.0).min(1.0);
                 let overhealing = message["overhealing"].as_u64().unwrap() as f64;
                 if vibe_strength < 20.0 {
-                    vibe_strength = (vibe_strength + (overhealing/160000.0/1.5)).min(0.2)
+                    vibe_strength += 0.50*((overhealing/160000.0))
                 }
 
                 // println!("rx rx");
@@ -408,9 +409,14 @@ async fn use_dev(dev: &ButtplugClientDevice, mut rx: Receiver<Json>) {
         // if float_cmp::approx_eq!(f64, vibe_strength, 1.0, ulps = 2) {
         //     vibe_strength = 0.99999;
         // }
-        vibe_strength *= 0.991;
-        println!("vibe_strength: {}", vibe_strength);
-        if vibe_strength < 0.02 {
+        if vibe_strength > 0.0 {
+            vibe_strength -= tick;//*= 0.995;
+            println!("vibe_strength: {}", vibe_strength);
+        }
+        if vibe_strength < 0.0 {
+            vibe_strength = 0.0;
+        }
+        if vibe_strength < 0.01 {
             vibe_strength = 0.0;
         }
         let elapsed = start.elapsed(); // Calculate the elapsed time since the start of the loop
@@ -433,7 +439,7 @@ async fn device_control_example(mut rx: Receiver<Json>) {
   // the server it uses. Handy!
   let client = in_process_client("Test Client", false).await;
   let mut event_stream = client.event_stream();
-
+  println!("zop");
   // We'll mostly be doing the same thing we did in example #3, up until we get
   // a device.
   if let Err(err) = client.start_scanning().await {
