@@ -1,151 +1,12 @@
-use tokio::sync::mpsc::{Sender, Receiver, channel};
-use futures::StreamExt;
-use std::thread;
-use devtimer::run_benchmark;
-
-use std::fs::File;
-use std::io::prelude::*;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use rustc_serialize::json::{Json, ToJson};
-use std::io::{BufRead, BufReader};
-
 use cbor::{Decoder, Encoder};
-
-use image::imageops::flip_vertical;
 use image::{ImageBuffer, Rgba};
-use std::mem::size_of;
-use windows::Win32::Foundation::{ERROR_INVALID_PARAMETER, HWND, RECT};
-use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
-    ReleaseDC, SelectObject, StretchBlt, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
-    SRCCOPY,
-};
-use windows::Win32::Storage::Xps::{PrintWindow, PRINT_WINDOW_FLAGS, PW_CLIENTONLY};
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetClientRect, GetSystemMetrics, GetWindowRect, PW_RENDERFULLCONTENT, SM_CXVIRTUALSCREEN,
-    SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
-};
+use rustc_serialize::json::{Json, ToJson};
+use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc::{Sender, Receiver, channel};
 use win_screenshot::addon::*;
 
-#[derive(Debug)]
-pub enum WSError {
-    GetDCIsNull,
-    GetClientRectIsZero,
-    CreateCompatibleDCIsNull,
-    CreateCompatibleBitmapIsNull,
-    SelectObjectError,
-    PrintWindowIsZero,
-    GetDIBitsError,
-    GetSystemMetricsIsZero,
-    StretchBltIsZero,
-}
-
-pub enum Area {
-    Full,
-    ClientOnly,
-}
-
-pub type Image = ImageBuffer<Rgba<u8>, Vec<u8>>;
-
-pub fn capture_window(hwnd: isize, area: Area, width: i32, height: i32) -> Result<Image, WSError> {
-    let hwnd = HWND(hwnd);
-
-    unsafe {
-        let mut rect = RECT::default();
-
-        let hdc_screen = GetDC(hwnd);
-        if hdc_screen.is_invalid() {
-            return Err(WSError::GetDCIsNull);
-        }
-
-        let get_cr = match area {
-            Area::Full => GetWindowRect(hwnd, &mut rect),
-            Area::ClientOnly => GetClientRect(hwnd, &mut rect),
-        };
-        if get_cr == false {
-            ReleaseDC(HWND::default(), hdc_screen);
-            return Err(WSError::GetClientRectIsZero);
-        }
-
-        let hdc = CreateCompatibleDC(hdc_screen);
-        if hdc.is_invalid() {
-            ReleaseDC(HWND::default(), hdc_screen);
-            return Err(WSError::CreateCompatibleDCIsNull);
-        }
-
-        let hbmp = CreateCompatibleBitmap(hdc_screen, width, height);
-        if hbmp.is_invalid() {
-            DeleteDC(hdc);
-            ReleaseDC(HWND::default(), hdc_screen);
-            return Err(WSError::CreateCompatibleBitmapIsNull);
-        }
-
-        let so = SelectObject(hdc, hbmp);
-        if so.is_invalid() {
-            DeleteDC(hdc);
-            DeleteObject(hbmp);
-            ReleaseDC(HWND::default(), hdc_screen);
-            return Err(WSError::SelectObjectError);
-        }
-
-        let bmih = BITMAPINFOHEADER {
-            biSize: size_of::<BITMAPINFOHEADER>() as u32,
-            biPlanes: 1,
-            biBitCount: 32,
-            biWidth: width,
-            biHeight: height,
-            biCompression: BI_RGB as u32,
-            ..Default::default()
-        };
-
-        let mut bmi = BITMAPINFO {
-            bmiHeader: bmih,
-            ..Default::default()
-        };
-
-        let mut buf: Vec<u8> = vec![0; (4 * width * height) as usize];
-
-        let flags = match area {
-            Area::Full => PRINT_WINDOW_FLAGS(PW_RENDERFULLCONTENT),
-            Area::ClientOnly => PRINT_WINDOW_FLAGS(PW_CLIENTONLY.0 | PW_RENDERFULLCONTENT),
-        };
-        let pw = PrintWindow(hwnd, hdc, flags);
-        if pw == false {
-            DeleteDC(hdc);
-            DeleteObject(hbmp);
-            ReleaseDC(HWND::default(), hdc_screen);
-            return Err(WSError::PrintWindowIsZero);
-        }
-
-        let gdb = GetDIBits(
-            hdc,
-            hbmp,
-            0,
-            height as u32,
-            buf.as_mut_ptr() as *mut core::ffi::c_void,
-            &mut bmi,
-            DIB_RGB_COLORS,
-        );
-        if gdb == 0 || gdb == ERROR_INVALID_PARAMETER.0 as i32 {
-            DeleteDC(hdc);
-            DeleteObject(hbmp);
-            ReleaseDC(HWND::default(), hdc_screen);
-            return Err(WSError::GetDIBitsError);
-        }
-
-        buf.chunks_exact_mut(4).for_each(|c| c.swap(0, 2));
-
-        let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            ImageBuffer::from_raw(width as u32, height as u32, buf).unwrap();
-
-        DeleteDC(hdc);
-        DeleteObject(hbmp);
-        ReleaseDC(HWND::default(), hdc_screen);
-
-        Ok(flip_vertical(&img))
-    }
-}
+mod local_capture;
 
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     let r = pixel[0] as u32;
@@ -242,6 +103,10 @@ impl Frame {
     pub fn get_all_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
         let mut pix_vec = Vec::new();
         let mut num_pixels = (self.size as f64/3.0).ceil() as u32;
+        if num_pixels == 0 {
+            return Err("0 pixels");
+        }
+        println!("num_pixels: {}", num_pixels);
         for i in 2..400 {
             if !Frame::is_data_pixel(i) {
                 continue;
@@ -271,13 +136,13 @@ impl Frame {
 }
 
 async fn read_wow(tx: Sender<Json>) {
-    let hwnd = find_window("World of Warcraft").unwrap();
+    let hwnd = find_window("Starcraft II").unwrap();
     let mut clock_old:u32 = 9999;
     let mut total_packets = 1.0;
     let mut good_packets = 1.0;
     let pixel_height:u8 = 6;
     loop {
-        let s = capture_window(hwnd, Area::Full, 400, pixel_height as i32).unwrap();
+        let s = local_capture::capture_window(hwnd, local_capture::Area::Full, 400, pixel_height as i32).unwrap();
         // make dependent on pixel width somehow to avoid errors when changing size
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
@@ -339,7 +204,41 @@ async fn main() {
     tokio::spawn(async move {
         read_wow(tx).await;
     });
-    // for received in rx {
-    //     // println!("outside thread got: {:?}", received);
-    // }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+    use super::*;
+
+    async fn profile_stock_screenshot() {
+        let hwnd = find_window("Starcraft II").expect("Couldn't find window");
+        let s = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).expect("Couldn't capture window");
+    }
+
+    async fn profile_region_screenshot() {
+        let hwnd = find_window("Starcraft II").expect("Couldn't find window");
+        let s = local_capture::capture_window(hwnd, local_capture::Area::Full, 400, 6).expect("Couldn't capture window");
+    }
+
+    #[tokio::test]
+    async fn test_profile_region_screenshot() {
+        let start_time = Instant::now();
+        for i in 0..100 {
+            profile_region_screenshot().await;
+        }
+        let end_time = Instant::now();
+        let duration = end_time.duration_since(start_time);
+        println!("test_profile_region_screenshot {:?}", duration);
+    }
+    #[tokio::test]
+    async fn test_profile_stock_screenshot() {
+        let start_time = Instant::now();
+        for i in 0..100 {
+            profile_stock_screenshot().await;
+        }
+        let end_time = Instant::now();
+        let duration = end_time.duration_since(start_time);
+        println!("test_profile_stock_screenshot {:?}", duration);
+    }
 }
