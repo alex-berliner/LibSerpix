@@ -1,5 +1,9 @@
+use serde_json;
+
 use tokio::sync::mpsc::{Sender, Receiver, channel};
 use wow_serdes::*;
+use serde_json::{Result, Value};
+
 
 #[tokio::main]
 async fn main() {
@@ -8,19 +12,20 @@ async fn main() {
     let h = tokio::spawn(async move {
         read_wow(tx).await;
     });
-    // println!("spawn");
     handles.push(h);
     let h = tokio::spawn(async move {
         loop {
-            // println!("poll");
             match rx.recv().await {
-                Some(v) =>  { println!("{:?}", v) },
+                Some(v) =>  {
+                    // let serde_json_value = serde_json::to_value(&v).unwrap();
+                    // println!("{:?}", v.to_string());
+                    let value: Value = serde_json::from_str(&v.to_string()).unwrap();
+                    println!("{}", value.to_string());
+                },
                 None => { println!("None") },
             }
         }
-        // while .await.unwrap() { }
     });
-    // println!("spawn");
     handles.push(h);
     for handle in handles {
         handle.await.unwrap();
