@@ -4,9 +4,27 @@ use wow_serdes::*;
 #[tokio::main]
 async fn main() {
     let (tx, mut rx) = channel(100);
-    tokio::spawn(async move {
+    let mut handles = vec![];
+    let h = tokio::spawn(async move {
         read_wow(tx).await;
     });
+    // println!("spawn");
+    handles.push(h);
+    let h = tokio::spawn(async move {
+        loop {
+            // println!("poll");
+            match rx.recv().await {
+                Some(v) =>  { println!("{:?}", v) },
+                None => { println!("None") },
+            }
+        }
+        // while .await.unwrap() { }
+    });
+    // println!("spawn");
+    handles.push(h);
+    for handle in handles {
+        handle.await.unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -15,12 +33,12 @@ mod tests {
     use super::*;
 
     async fn profile_stock_screenshot() {
-        let hwnd = find_window("Starcraft II").expect("Couldn't find window");
+        let hwnd = find_window("World of Warcraft").expect("Couldn't find window");
         let s = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).expect("Couldn't capture window");
     }
 
     async fn profile_region_screenshot() {
-        let hwnd = find_window("Starcraft II").expect("Couldn't find window");
+        let hwnd = find_window("World of Warcraft").expect("Couldn't find window");
         let s = wow_serdes::capture_window(hwnd, wow_serdes::Area::Full, 400, 6).expect("Couldn't capture window");
     }
 

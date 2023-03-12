@@ -112,7 +112,7 @@ impl Frame {
         if num_pixels == 0 {
             return Err("0 pixels");
         }
-        println!("num_pixels: {}", num_pixels);
+        // println!("num_pixels: {}", num_pixels);
         for i in 2..400 {
             if !Frame::is_data_pixel(i) {
                 continue;
@@ -142,7 +142,7 @@ impl Frame {
 }
 
 pub async fn read_wow(tx: Sender<Json>) {
-    let hwnd = find_window("Starcraft II").unwrap();
+    let hwnd = find_window("World of Warcraft").unwrap();
     let mut clock_old:u32 = 9999;
     let mut total_packets = 1.0;
     let mut good_packets = 1.0;
