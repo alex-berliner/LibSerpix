@@ -5,8 +5,7 @@ use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Sender, Receiver, channel};
 use win_screenshot::addon::*;
-
-mod local_capture;
+use wow_serdes::*;
 
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     let r = pixel[0] as u32;
@@ -142,7 +141,7 @@ async fn read_wow(tx: Sender<Json>) {
     let mut good_packets = 1.0;
     let pixel_height:u8 = 6;
     loop {
-        let s = local_capture::capture_window(hwnd, local_capture::Area::Full, 400, pixel_height as i32).unwrap();
+        let s = wow_serdes::capture_window(hwnd, wow_serdes::Area::Full, 400, pixel_height as i32).unwrap();
         // make dependent on pixel width somehow to avoid errors when changing size
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
@@ -218,7 +217,7 @@ mod tests {
 
     async fn profile_region_screenshot() {
         let hwnd = find_window("Starcraft II").expect("Couldn't find window");
-        let s = local_capture::capture_window(hwnd, local_capture::Area::Full, 400, 6).expect("Couldn't capture window");
+        let s = wow_serdes::capture_window(hwnd, wow_serdes::Area::Full, 400, 6).expect("Couldn't capture window");
     }
 
     #[tokio::test]
