@@ -141,7 +141,7 @@ impl Frame {
     }
 }
 
-pub async fn read_wow(tx: Sender<Json>) {
+pub async fn read_wow(tx: Sender<serde_json::Value>) {
     let hwnd = find_window("World of Warcraft").unwrap();
     let mut clock_old:u32 = 9999;
     let mut total_packets = 1.0;
@@ -199,7 +199,9 @@ pub async fn read_wow(tx: Sender<Json>) {
             Ok(o) => o,
             Err(e) => {println!("{}", e); continue;}
         };
-        tx.send(cbor.to_json()).await;
+        let c2j = cbor.to_json();
+        let value: serde_json::Value = serde_json::from_str(&c2j.to_string()).unwrap();
+        tx.send(value).await;
         clock_old = clock.into();
     }
 }

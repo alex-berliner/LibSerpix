@@ -2,8 +2,6 @@ use serde_json;
 
 use tokio::sync::mpsc::{Sender, Receiver, channel};
 use wow_serdes::*;
-use serde_json::{Result, Value};
-
 
 #[tokio::main]
 async fn main() {
@@ -17,10 +15,7 @@ async fn main() {
         loop {
             match rx.recv().await {
                 Some(v) =>  {
-                    // let serde_json_value = serde_json::to_value(&v).unwrap();
-                    // println!("{:?}", v.to_string());
-                    let value: Value = serde_json::from_str(&v.to_string()).unwrap();
-                    println!("{}", value.to_string());
+                    println!("{}", v.to_string());
                 },
                 None => { println!("None") },
             }
