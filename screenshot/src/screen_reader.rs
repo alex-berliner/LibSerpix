@@ -1,8 +1,3 @@
-// register window
-// unregister window
-// get json from recv?
-// find window by different methods
-
 use cbor::{Decoder, Encoder};
 use image::{ImageBuffer, Rgba};
 use rustc_serialize::json::{Json, ToJson};
@@ -25,7 +20,8 @@ fn decode_header(header: u32) -> (u8, u8, u8) {
     (size, checksum, clock)
 }
 
-fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8) -> Result<Rgba<u8>, &'static str> {
+fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8)
+                                            -> Result<Rgba<u8>, &'static str> {
     let pixels = (0..height)
         .filter_map(|y| Some(img.get_pixel(x, y as u32)))
         .collect::<Vec<_>>();
@@ -55,15 +51,14 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8) 
 struct Frame {
     size: u8,
     checksum: u8,
-    clock: u8,
-    width: u8,
     height: u8,
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
 impl Frame {
     pub fn save(&mut self) {
-        let posix_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let posix_time =
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut file_name = posix_time.to_string();
         file_name.push_str(".bmp");
         self.img.save(file_name).unwrap();
@@ -95,6 +90,10 @@ impl Frame {
         }
     }
 
+    /*
+    This models the way WoW draws lines of pixels do the screen when instructed
+    to draw them 1 pixel apart
+    */
     fn is_data_pixel(i: u32) -> bool {
         let x = i%5;
         x == 0 || x == 3
@@ -106,7 +105,6 @@ impl Frame {
         if num_pixels == 0 {
             return Err("0 pixels");
         }
-        // println!("num_pixels: {}", num_pixels);
         for i in 2..400 {
             if !Frame::is_data_pixel(i) {
                 continue;
@@ -127,7 +125,9 @@ impl Frame {
             }
         }
         if num_pixels > 0 {
-            // println!("Expected {} pixels, got {}", (self.size as f64/3.0).ceil() as u32, (self.size as f64/3.0).ceil() as u32-num_pixels);
+            // println!("Expected {} pixels, got {}",
+                // (self.size as f64/3.0).ceil() as u32,
+                // (self.size as f64/3.0).ceil() as u32-num_pixels);
             return Err("Pixels missing from image");
         }
 
@@ -137,31 +137,35 @@ impl Frame {
 
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     let mut clock_old:u32 = 9999;
-    let mut total_packets = 1.0;
-    let mut good_packets = 1.0;
-    let pixel_height:u8 = 6;
+    let mut total_packets = 1;
+    let mut good_packets = 1;
+    let pixel_height: u8 = 6;
     loop {
-        let s = capture_window(hwnd, local_capture::Area::Full, 400, pixel_height as i32).unwrap();
-        // make dependent on pixel width somehow to avoid errors when changing size
+        let s =  capture_window(hwnd,
+                                local_capture::Area::Full,
+                                400,
+                                pixel_height as i32).unwrap();
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
-            Err(e) => { /* println!("bad header pixel"); */ total_packets = total_packets + 1.0; continue; }
-        }; //s.get_pixel(0,0);
+            Err(e) => {
+                // println!("bad header pixel");
+                total_packets = total_packets + 1;
+                continue;
+            }
+        };
         let header = color_to_integer(&pixel);
         let (size, checksum_rx, clock) = decode_header(header);
         // println!("{}", size);
         let mut frame = Frame {
             size: size,
             checksum: checksum_rx,
-            clock: clock,
-            width: 1,
             height: pixel_height,
             img: s
         };
         if clock_old == clock as u32 {
             continue;
         }
-        total_packets = total_packets + 1.0;
+        total_packets = total_packets + 1;
         let myvec = match frame.get_all_pixels() {
             Ok(o) =>  {/* println!("good frame"); */ o },
             Err(e) => { println!("{}", e); continue; }
@@ -172,10 +176,8 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             bytevec.push(p[1]);
             bytevec.push(p[2]);
         }
-        // remove bytes padded from pixels always being 3 bytes
-        while bytevec.len() > size.into() {
-            bytevec.pop();
-        }
+        // remove padding bytes
+        let bytevec = &bytevec[..size.into()];
         let mut checksum: u32 = 0;
         for b in bytevec.iter() {
             checksum = (checksum+*b as u32)%256;
@@ -184,14 +186,17 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             // println!("checksum doesn't match");
             continue;
         }
-        good_packets = good_packets + 1.0;
+        good_packets = good_packets + 1;
+
+        // println!("{}",(total_packets as f32 - good_packets as f32) / total_packets as f32);
         let mut d = Decoder::from_bytes(bytevec);
         let cbor = match d.items().next().unwrap() {
             Ok(o) => o,
             Err(e) => {println!("{}", e); continue;}
         };
         let c2j = cbor.to_json();
-        let value: serde_json::Value = serde_json::from_str(&c2j.to_string()).unwrap();
+        let value: serde_json::Value =
+                        serde_json::from_str(&c2j.to_string()).unwrap();
         if value.is_object() {
             tx.send(value).await.expect("json send failed");
         }

@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::{Sender, Receiver, channel};
+use tokio::sync::mpsc::{Sender, Receiver, channel, error};
 use win_screenshot::addon::*;
 use wow_serdes::*;
 
@@ -14,10 +14,18 @@ async fn main() {
     let h = tokio::spawn(async move {
         let mut ctr = 0;
         loop {
-            if let Ok(v) = rx.try_recv() {
-                let jstring = v.to_string();
-                println!("{} {}", ctr, jstring);
-                ctr += 1;
+            match rx.try_recv() {
+                Ok(v) => {
+                    let jstring = v.to_string();
+                    println!("{} {}", ctr, jstring);
+                    ctr += 1;
+                },
+                Err(e) => {
+                    match e {
+                        error::TryRecvError::Disconnected => break,
+                        _ => {}
+                    }
+                }
             }
         }
     });
