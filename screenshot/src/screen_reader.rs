@@ -6,10 +6,8 @@
 use cbor::{Decoder, Encoder};
 use image::{ImageBuffer, Rgba};
 use rustc_serialize::json::{Json, ToJson};
-use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{Sender, Receiver, channel};
-use win_screenshot::addon::*;
 use crate::*;
 
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
@@ -27,23 +25,20 @@ fn decode_header(header: u32) -> (u8, u8, u8) {
     (size, checksum, clock)
 }
 
-fn all_values_equal<T: PartialEq>(vec: &Vec<T>) -> bool {
-    vec.iter().all(|x| x.eq(&vec[0]))
-}
-
 fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8) -> Result<Rgba<u8>, &'static str> {
     let pixels = (0..height)
         .filter_map(|y| Some(img.get_pixel(x, y as u32)))
         .collect::<Vec<_>>();
 
-    let mut counts = std::collections::HashMap::new();
-    for pixel in pixels.iter() {
-        *counts.entry(pixel).or_insert(0) += 1;
-    }
+    let pixel_counts =
+        pixels.iter().fold(std::collections::HashMap::new(), |mut acc, &x| {
+        *acc.entry(x).or_insert(0) += 1;
+        acc
+    });
 
     let mut most_common_pixel = &pixels[0];
     let mut most_common_count = 0;
-    for (pixel, count) in counts.iter() {
+    for (pixel, count) in pixel_counts.iter() {
         if count > &most_common_count {
             most_common_pixel = pixel;
             most_common_count = *count;
@@ -53,7 +48,6 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8) 
     if most_common_count >= 2 {
         Ok(*most_common_pixel.clone())
     } else {
-        // self.save();
         Err("FRAME Not at least 2 pixels are the same")
     }
 }
