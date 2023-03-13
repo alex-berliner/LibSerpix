@@ -7,4 +7,5 @@
 
 util.lua
 cbor.lua
+serializer.lua
 PixelReaderDemo.lua

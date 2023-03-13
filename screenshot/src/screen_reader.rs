@@ -141,8 +141,7 @@ impl Frame {
     }
 }
 
-pub async fn read_wow(tx: Sender<serde_json::Value>) {
-    let hwnd = find_window("World of Warcraft").unwrap();
+pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     let mut clock_old:u32 = 9999;
     let mut total_packets = 1.0;
     let mut good_packets = 1.0;

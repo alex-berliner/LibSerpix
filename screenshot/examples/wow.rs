@@ -1,6 +1,5 @@
-use serde_json;
-
 use tokio::sync::mpsc::{Sender, Receiver, channel};
+use win_screenshot::addon::*;
 use wow_serdes::*;
 
 #[tokio::main]
@@ -8,14 +7,19 @@ async fn main() {
     let (tx, mut rx) = channel(100);
     let mut handles = vec![];
     let h = tokio::spawn(async move {
-        read_wow(tx).await;
+        let hwnd = find_window("World of Warcraft").unwrap();
+        read_wow(hwnd, tx).await;
     });
     handles.push(h);
     let h = tokio::spawn(async move {
         loop {
             match rx.recv().await {
                 Some(v) =>  {
-                    println!("{}", v.to_string());
+                    if !v.is_array() {
+                        // println!("{:?}", v);
+                        let jstring = v.to_string();
+                        println!("{}", jstring);
+                    }
                 },
                 None => { println!("None") },
             }

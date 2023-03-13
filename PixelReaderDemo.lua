@@ -12,12 +12,9 @@ local boxes = {}
 local _, ADDONSELF = ...
 
 local cbor = get_cbor()
-tx_healing = 0
-tx_overhealing = 0
-tx_damage = 0
+local serializer = get_serializer()
 
 function init()
-    init_my_serialized_data()
     create_boxes()
     UIParent:SetScript("OnUpdate", OnUpdate)
     f = CreateFrame("Frame")
@@ -28,41 +25,7 @@ end
 
 -- Define the OnCombatLogEvent function
 function OnCombatLogEvent(event, ...)
-    function parse_heal(...)
-        local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
-        local spellId, spellName, spellSchool = select(12, ...)
-        -- Check if the sourceGUID is your character's GUID
-        if sourceGUID == UnitGUID("player") then
-            healing, overhealing, absorbed, critical = select(15, ...)
-            tx_overhealing = tx_overhealing + overhealing
-            tx_healing = tx_healing + healing - overhealing
-        end
-    end
-    function parse_dmg(...)
-        local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
-        local spellId, spellName, spellSchool = select(12, ...)
-        if sourceGUID == UnitGUID("player") then
-            amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = select(15, ...)
-            -- print("amount: " .. tostring(amount))
-            tx_damage = tx_damage + amount
-        end
-    end
-    function parse_event(...)
-        local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
-        if subevent == "SPELL_HEAL" or subevent == "SPELL_PERIODIC_HEAL" then
-            parse_heal(...)
-        end
-        if subevent == "SPELL_DAMAGE" or subevent == "SPELL_PERIODIC_DAMAGE" then
-            parse_dmg(...)
-        end
-    end
-    parse_event(CombatLogGetCurrentEventInfo())
-end
-
-function init_my_serialized_data()
-    d = {
-        empty=0,
-    }
+    serializer.CombatEventHandler(event, ...)
 end
 
 function create_boxes()
@@ -98,48 +61,11 @@ function show_boxes(n)
     boxes["active_boxes"] = n
 end
 
--- https://gist.github.com/Elemecca/6361899
-function hex_dump (str, len)
-    local dump = ""
-    local hex = ""
-    local asc = ""
-
-    for i = 1, len do
-        if 1 == i % 8 then
-            dump = dump .. hex .. asc .. "\n"
-            hex = string.format( "%04x: ", i - 1 )
-            asc = ""
-        end
-
-        local ord = string.byte( str, i )
-        hex = hex .. string.format( "%02x ", ord )
-        if ord >= 32 and ord <= 126 then
-            asc = asc .. string.char( ord )
-        else
-            asc = asc .. "."
-        end
-    end
-
-
-    return dump .. hex
-            .. string.rep( "   ", 8 - len % 8 ) .. asc
-end
-
 local clock = 0
 function OnUpdate(self, elapsed)
-    d = {
-        bonders=tx_healing,
-        overhealing=tx_overhealing,
-        damage=tx_damage,
-    }
-    local t = cbor.encode(d)
+    local t = cbor.encode(serializer.vals)
     local checksum = 0
-    -- if tx_healing > 0 then
-    --     print(tx_healing)
-    -- end
-    tx_healing = 0
-    tx_overhealing = 0
-    tx_damage = 0
+    serializer.vals = {}
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     orig_size = #t
     while (Modulo(#t, 3) ~= 0) do
