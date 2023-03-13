@@ -61,9 +61,7 @@ end
 
 function init_my_serialized_data()
     d = {
-        healing=0,
-        overhealing=0,
-        damage=0,
+        empty=0,
     }
 end
 
@@ -127,13 +125,12 @@ function hex_dump (str, len)
             .. string.rep( "   ", 8 - len % 8 ) .. asc
 end
 
-
 local clock = 0
 function OnUpdate(self, elapsed)
     d = {
-        healing=tx_healing,
+        bonders=tx_healing,
         overhealing=tx_overhealing,
-        damage=tx_tx_damage,
+        damage=tx_damage,
     }
     local t = cbor.encode(d)
     local checksum = 0
@@ -142,6 +139,7 @@ function OnUpdate(self, elapsed)
     -- end
     tx_healing = 0
     tx_overhealing = 0
+    tx_damage = 0
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     orig_size = #t
     while (Modulo(#t, 3) ~= 0) do
