@@ -123,7 +123,7 @@ impl Frame {
                     p
                 },
                 Err(e) => {
-                    println!("{}", i);
+                    // println!("{}", i);
                     return Err(e);
                 }
             };
@@ -133,7 +133,7 @@ impl Frame {
             }
         }
         if num_pixels > 0 {
-            println!("Expected {} pixels, got {}", (self.size as f64/3.0).ceil() as u32, (self.size as f64/3.0).ceil() as u32-num_pixels);
+            // println!("Expected {} pixels, got {}", (self.size as f64/3.0).ceil() as u32, (self.size as f64/3.0).ceil() as u32-num_pixels);
             return Err("Pixels missing from image");
         }
 
@@ -190,7 +190,7 @@ pub async fn read_wow(tx: Sender<serde_json::Value>) {
             checksum = (checksum+*b as u32)%256;
         }
         if frame.checksum as u32 != checksum {
-            println!("checksum doesn't match");
+            // println!("checksum doesn't match");
             continue;
         }
         good_packets = good_packets + 1.0;
