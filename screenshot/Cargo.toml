@@ -22,3 +22,5 @@ float-cmp = "0.9.0"
 time-test = "0.2.3"
 serde_json = "1.0.94"
 qshot = "0.1.2"
+winapi = { version = "0.3", features = ["winuser"] }
+

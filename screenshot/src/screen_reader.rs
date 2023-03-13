@@ -1,7 +1,9 @@
 use cbor::{Decoder, Encoder};
 use image::{ImageBuffer, Rgba};
 use rustc_serialize::json::{Json, ToJson};
+use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use tokio::sync::mpsc::{Sender, Receiver, channel};
 use crate::*;
 
@@ -141,6 +143,15 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     let mut good_packets = 1;
     let pixel_height: u8 = 6;
     loop {
+        match hwnd_exists(hwnd) {
+            WindowStatus::Destroyed => break,
+            WindowStatus::Minimized => {
+                thread::sleep(Duration::from_millis(1));
+                continue;
+            },
+            _ => {},
+        }
+
         let s =  capture_window(hwnd,
                                 local_capture::Area::Full,
                                 400,
