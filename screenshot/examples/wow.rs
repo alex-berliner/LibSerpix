@@ -12,16 +12,12 @@ async fn main() {
     });
     handles.push(h);
     let h = tokio::spawn(async move {
+        let mut ctr = 0;
         loop {
-            match rx.recv().await {
-                Some(v) =>  {
-                    if !v.is_array() {
-                        // println!("{:?}", v);
-                        let jstring = v.to_string();
-                        println!("{}", jstring);
-                    }
-                },
-                None => { println!("None") },
+            if let Ok(v) = rx.try_recv() {
+                let jstring = v.to_string();
+                println!("{} {}", ctr, jstring);
+                ctr += 1;
             }
         }
     });

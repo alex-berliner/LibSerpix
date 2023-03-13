@@ -151,7 +151,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         // make dependent on pixel width somehow to avoid errors when changing size
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
-            Err(e) => { println!("bad header pixel"); total_packets = total_packets + 1.0; continue; }
+            Err(e) => { /* println!("bad header pixel"); */ total_packets = total_packets + 1.0; continue; }
         }; //s.get_pixel(0,0);
         let header = color_to_integer(&pixel);
         let (size, checksum_rx, clock) = decode_header(header);
@@ -165,8 +165,6 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             img: s
         };
         if clock_old == clock as u32 {
-            // not necessary to warn, rust just reads really fast
-            // println!("same clock clock_old {} clock {}", clock_old , clock );
             continue;
         }
         total_packets = total_packets + 1.0;
@@ -200,7 +198,9 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         };
         let c2j = cbor.to_json();
         let value: serde_json::Value = serde_json::from_str(&c2j.to_string()).unwrap();
-        tx.send(value).await;
+        if value.is_object() {
+            tx.send(value).await.expect("json send failed");
+        }
         clock_old = clock.into();
     }
 }
