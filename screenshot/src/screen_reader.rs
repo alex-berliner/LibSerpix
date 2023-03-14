@@ -34,17 +34,13 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8)
         acc
     });
 
-    let mut most_common_pixel = &pixels[0];
-    let mut most_common_count = 0;
-    for (pixel, count) in pixel_counts.iter() {
-        if count > &most_common_count {
-            most_common_pixel = pixel;
-            most_common_count = *count;
-        }
-    }
+    let (most_common_pixel, most_common_count) = pixel_counts.iter()
+        .max_by_key(|&(_, count)| count)
+        .map(|(pixel, count)| (*pixel, *count))
+        .unwrap();
 
     if most_common_count >= 2 {
-        Ok(*most_common_pixel.clone())
+        Ok(*most_common_pixel)
     } else {
         Err("FRAME Not at least 2 pixels are the same")
     }
@@ -65,31 +61,9 @@ impl Frame {
         file_name.push_str(".bmp");
         self.img.save(file_name).unwrap();
     }
+
     fn pixel_validate_get(&mut self, x: u32) -> Result<Rgba<u8>, &'static str> {
-        let pixels = (0..self.height)
-            .filter_map(|y| Some(self.img.get_pixel(x, y as u32)))
-            .collect::<Vec<_>>();
-
-        let mut counts = std::collections::HashMap::new();
-        for pixel in pixels.iter() {
-            *counts.entry(pixel).or_insert(0) += 1;
-        }
-
-        let mut most_common_pixel = &pixels[0];
-        let mut most_common_count = 0;
-        for (pixel, count) in counts.iter() {
-            if count > &most_common_count {
-                most_common_pixel = pixel;
-                most_common_count = *count;
-            }
-        }
-
-        if most_common_count >= 2 {
-            Ok(*most_common_pixel.clone())
-        } else {
-            self.save();
-            Err("FRAME Not at least 2 pixels are the same")
-        }
+        pixel_validate_get(&self.img, x, self.height)
     }
 
     /*
