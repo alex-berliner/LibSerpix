@@ -138,10 +138,8 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         }
         // remove padding bytes
         let bytevec = &bytevec[..size.into()];
-        let mut checksum: u32 = 0;
-        for b in bytevec.iter() {
-            checksum = (checksum+*b as u32)%256;
-        }
+
+        let checksum = bytevec.iter().fold(0, |acc, x| (acc + *x as u32)%256);
         if frame.checksum as u32 != checksum {
             println!("checksum doesn't match");
             continue;
