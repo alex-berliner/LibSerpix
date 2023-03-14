@@ -80,7 +80,7 @@ impl Frame {
         v
     }
 
-    pub fn get_payload_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
+    fn get_payload_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
         let num_pixels = (self.size as f64/3.0).ceil() as u32;
         let pix_vec: Result<Vec<_>, _> =
             (1..=num_pixels)
