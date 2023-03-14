@@ -17,7 +17,8 @@ async fn main() {
             match rx.try_recv() {
                 Ok(v) => {
                     let jstring = v.to_string();
-                    println!("{} {}", ctr, jstring);
+                    eprintln!("payload #{}", ctr);
+                    println!("{}",jstring);
                     ctr += 1;
                 },
                 Err(e) => {

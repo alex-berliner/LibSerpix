@@ -39,10 +39,10 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8)
         .map(|(pixel, count)| (*pixel, *count))
         .unwrap();
 
-    if most_common_count >= 2 {
+    if most_common_count >= 3 {
         Ok(*most_common_pixel)
     } else {
-        Err("FRAME Not at least 2 pixels are the same")
+        Err("FRAME: Not at least 3 pixels are the same")
     }
 }
 
@@ -66,6 +66,10 @@ impl Frame {
         pixel_validate_get(&self.img, x, self.height)
     }
 
+    /*
+    When instructed to draw pixels 1 space apart, WoW draws them in the sequence
+    0, 3, 5, 8, 10, 13... This function models that for iteration.
+    */
     fn i2p(i: u32) -> u32 {
         let r = i%2;
         let d = i/2;
@@ -87,9 +91,9 @@ impl Frame {
 }
 
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
-    let mut clock_old:u32 = 9999;
-    let mut total_packets = 1;
-    let mut good_packets = 1;
+    let mut clock_old:u32 = u32::MAX;
+    let mut total_packets = 0;
+    let mut good_packets = 0;
     let pixel_height: u8 = 6;
     loop {
         match hwnd_exists(hwnd) {
@@ -105,17 +109,16 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
                                 local_capture::Area::Full,
                                 400,
                                 pixel_height as i32).unwrap();
+        total_packets += 1;
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
             Err(e) => {
-                // println!("bad header pixel");
-                total_packets = total_packets + 1;
+                eprintln!("bad header pixel");
                 continue;
             }
         };
         let header = color_to_integer(&pixel);
         let (size, checksum_rx, clock) = decode_header(header);
-        // println!("{}", size);
         let mut frame = Frame {
             size: size,
             checksum: checksum_rx,
@@ -123,12 +126,12 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             img: s
         };
         if clock_old == clock as u32 {
+            total_packets -= 1;
             continue;
         }
-        total_packets = total_packets + 1;
         let myvec = match frame.get_payload_pixels() {
-            Ok(o) =>  {/* println!("good frame"); */ o },
-            Err(e) => { println!("{}", e); continue; }
+            Ok(o) =>  { o },
+            Err(e) => { eprintln!("payload err {}", e); continue; }
         };
         let mut bytevec: Vec<u8> = Vec::new();
         for p in myvec.iter() {
@@ -141,12 +144,11 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
 
         let checksum = bytevec.iter().fold(0, |acc, x| (acc + *x as u32)%256);
         if frame.checksum as u32 != checksum {
-            println!("checksum doesn't match");
+            eprintln!("checksum doesn't match");
             continue;
         }
-        good_packets = good_packets + 1;
-
-        // println!("{}",(total_packets as f32 - good_packets as f32) / total_packets as f32);
+        good_packets += 1;
+        eprintln!("{} {} {}",((total_packets - good_packets) as f32) / total_packets as f32, total_packets, good_packets);
         let mut d = Decoder::from_bytes(bytevec);
         let cbor = match d.items().next().unwrap() {
             Ok(o) => o,
@@ -155,10 +157,13 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         let c2j = cbor.to_json();
         let value: serde_json::Value =
                         serde_json::from_str(&c2j.to_string()).unwrap();
-        // println!("value {:?}", value);
         if value.is_object() {
             tx.send(value).await.expect("json send failed");
         }
         clock_old = clock.into();
+        if total_packets > 10000 {
+            total_packets = 0;
+            good_packets = 0;
+        }
     }
 }
