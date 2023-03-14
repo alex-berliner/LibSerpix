@@ -66,48 +66,23 @@ impl Frame {
         pixel_validate_get(&self.img, x, self.height)
     }
 
-    /*
-    This models the way WoW draws lines of pixels do the screen when instructed
-    to draw them 1 pixel apart
-    */
-    fn is_data_pixel(i: u32) -> bool {
-        let x = i%5;
-        x == 0 || x == 3
+    fn i2p(i: u32) -> u32 {
+        let r = i%2;
+        let d = i/2;
+        let mut v = d * 5;
+        if r == 1 {
+            v += 3;
+        }
+        v
     }
 
-    pub fn get_all_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
-        let mut pix_vec = Vec::new();
-        let mut num_pixels = (self.size as f64/3.0).ceil() as u32;
-        if num_pixels == 0 {
-            return Err("0 pixels");
-        }
-        for i in 2..400 {
-            if !Frame::is_data_pixel(i) {
-                continue;
-            }
-            let pixel = match self.pixel_validate_get(i) {
-                Ok(p) => {
-                    num_pixels -= 1;
-                    p
-                },
-                Err(e) => {
-                    // println!("{}", i);
-                    return Err(e);
-                }
-            };
-            pix_vec.push(pixel);
-            if num_pixels < 1 {
-                break;
-            }
-        }
-        if num_pixels > 0 {
-            // println!("Expected {} pixels, got {}",
-                // (self.size as f64/3.0).ceil() as u32,
-                // (self.size as f64/3.0).ceil() as u32-num_pixels);
-            return Err("Pixels missing from image");
-        }
-
-        Ok(pix_vec)
+    pub fn get_payload_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
+        let num_pixels = (self.size as f64/3.0).ceil() as u32;
+        let pix_vec: Result<Vec<_>, _> =
+            (1..=num_pixels)
+            .map(|i| self.pixel_validate_get(Frame::i2p(i as u32)) )
+            .collect();
+        pix_vec
     }
 }
 
@@ -151,7 +126,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             continue;
         }
         total_packets = total_packets + 1;
-        let myvec = match frame.get_all_pixels() {
+        let myvec = match frame.get_payload_pixels() {
             Ok(o) =>  {/* println!("good frame"); */ o },
             Err(e) => { println!("{}", e); continue; }
         };
@@ -168,7 +143,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             checksum = (checksum+*b as u32)%256;
         }
         if frame.checksum as u32 != checksum {
-            // println!("checksum doesn't match");
+            println!("checksum doesn't match");
             continue;
         }
         good_packets = good_packets + 1;
@@ -182,6 +157,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         let c2j = cbor.to_json();
         let value: serde_json::Value =
                         serde_json::from_str(&c2j.to_string()).unwrap();
+        // println!("value {:?}", value);
         if value.is_object() {
             tx.send(value).await.expect("json send failed");
         }

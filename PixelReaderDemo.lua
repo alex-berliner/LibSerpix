@@ -63,6 +63,9 @@ end
 
 local clock = 0
 function OnUpdate(self, elapsed)
+    -- serializer.vals.tx_healing = 0
+    -- serializer.vals.tx_overhealing = 0
+    -- serializer.vals.tx_damage = 0
     local t = cbor.encode(serializer.vals)
     local checksum = 0
     serializer.vals = {}
