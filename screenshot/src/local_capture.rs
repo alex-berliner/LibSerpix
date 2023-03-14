@@ -1,17 +1,3 @@
-use tokio::sync::mpsc::{Sender, Receiver, channel};
-use futures::StreamExt;
-use std::thread;
-use devtimer::run_benchmark;
-
-use std::fs::File;
-use std::io::prelude::*;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use rustc_serialize::json::{Json, ToJson};
-use std::io::{BufRead, BufReader};
-
-use cbor::{Decoder, Encoder};
-
 use image::imageops::flip_vertical;
 use image::{ImageBuffer, Rgba};
 use std::mem::size_of;
@@ -26,7 +12,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetClientRect, GetSystemMetrics, GetWindowRect, PW_RENDERFULLCONTENT, SM_CXVIRTUALSCREEN,
     SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
-use win_screenshot::addon::*;
 
 #[derive(Debug)]
 pub enum WSError {
