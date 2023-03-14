@@ -1,10 +1,10 @@
-use cbor::{Decoder, Encoder};
+use cbor::Decoder;
 use image::{ImageBuffer, Rgba};
-use rustc_serialize::json::{Json, ToJson};
+use rustc_serialize::json::ToJson;
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
-use tokio::sync::mpsc::{Sender, Receiver, channel};
+use tokio::sync::mpsc::Sender;
 use crate::*;
 
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
@@ -54,7 +54,8 @@ struct Frame {
 }
 
 impl Frame {
-    pub fn save(&mut self) {
+    #[allow(dead_code)]
+    fn save(&mut self) {
         let posix_time =
             SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut file_name = posix_time.to_string();
@@ -113,7 +114,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
             Err(e) => {
-                eprintln!("bad header pixel");
+                eprintln!("bad header pixel {}", e);
                 continue;
             }
         };

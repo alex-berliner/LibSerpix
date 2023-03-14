@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::{Sender, Receiver, channel, error};
+use tokio::sync::mpsc::{channel, error};
 use win_screenshot::addon::*;
 use wow_serdes::*;
 
