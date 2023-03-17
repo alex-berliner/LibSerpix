@@ -19,9 +19,9 @@ fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
 }
 
 fn decode_header(header: u32) -> (u8, u8, u8) {
-    let size = (header >> 16) as u8;
-    let checksum = ((header >> 8) & 0xff) as u8;
-    let clock = (header & 0xff) as u8;
+    let size = (header >> 14) as u8;
+    let checksum = ((header >> 6) & 0xff) as u8;
+    let clock = (header & 0xfC) as u8;
 
     (size, checksum, clock)
 }

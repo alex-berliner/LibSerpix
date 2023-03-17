@@ -1,3 +1,5 @@
+-- User modifiable file to change serialized data
+
 serializer = {}
 
 function serializer.CombatEventHandler(event, ...)
@@ -34,7 +36,7 @@ function serializer.CombatEventHandler(event, ...)
 end
 
 local function init_user_serialized_data()
-    serializer.vals.tx_healing = 0
+    serializer.vals.tx_healing = "sss"
     serializer.vals.tx_overhealing = 0
     serializer.vals.tx_damage = 0
 end

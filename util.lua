@@ -23,7 +23,6 @@ function hex_dump(str, len)
         end
     end
 
-
     return dump .. hex
             .. string.rep( "   ", 8 - len % 8 ) .. asc
 end
@@ -64,7 +63,7 @@ function integerToColor(i)
     end
 
     if i > (256 * 256 * 256 - 1) then -- the biggest value to represent with 3 bytes of colour
-        print("Integer too big to encode as color")
+        print("Integer too big to encode as color", string.format("%08x", i))
     end
 
     -- r,g,b are integers in range 0-255
@@ -80,4 +79,10 @@ end
 
 function rbgToColor(r,g,b)
     return {r / 255, g / 255, b / 255}
+end
+
+local cbor = get_cbor()
+function getBytesRemaining(serializer)
+    local t = cbor.encode(serializer.vals)
+    return 300-#t
 end

@@ -5,7 +5,7 @@
 ## Notes:
 ## SavedVariables:
 
-util.lua
 cbor.lua
+util.lua
 serializer.lua
 PixelReaderDemo.lua
