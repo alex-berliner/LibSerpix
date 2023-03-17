@@ -5,6 +5,7 @@ use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
+use std::time::Instant;
 use crate::*;
 
 static CAPTURE_MAX_W: u32 = 500;
@@ -115,7 +116,10 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             _ => {},
         }
 
+        let start = Instant::now();
         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
+        let duration = start.elapsed();
+        eprintln!("Time elapsed: {:?}", duration);
         total_packets += 1;
         let pixel = match pixel_validate_get(&s, 0, CAPTURE_MAX_H) {
             Ok(o) => o,
