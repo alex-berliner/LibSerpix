@@ -1,5 +1,5 @@
 use cbor::Decoder;
-use image::{ImageBuffer, Rgba};
+use image::{imageops::crop_imm, ImageBuffer, Rgba};
 use rustc_serialize::json::ToJson;
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -91,6 +91,13 @@ impl Frame {
     }
 }
 
+fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+    let buf = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).unwrap();
+    let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
+        ImageBuffer::from_raw(buf.width, buf.height, buf.pixels).unwrap();
+    crop_imm(&img, 0, 0, w, h).to_image()
+}
+
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     let mut clock_old:u32 = u32::MAX;
     let mut total_packets = 0;
@@ -105,11 +112,8 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             },
             _ => {},
         }
+        let s = get_screen(hwnd, 400, pixel_height as u32);
 
-        let s =  capture_window(hwnd,
-                                local_capture::Area::Full,
-                                400,
-                                pixel_height as i32).unwrap();
         total_packets += 1;
         let pixel = match pixel_validate_get(&s, 0, pixel_height) {
             Ok(o) => o,
@@ -151,9 +155,13 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         good_packets += 1;
         eprintln!("{} {} {}",((total_packets - good_packets) as f32) / total_packets as f32, total_packets, good_packets);
         let mut d = Decoder::from_bytes(bytevec);
-        let cbor = match d.items().next().unwrap() {
+        let cbor_in = match d.items().next() {
+            Some(o) => o,
+            None => {eprintln!("cbor fail"); frame.save(); continue;}
+        };
+        let cbor = match cbor_in {
             Ok(o) => o,
-            Err(e) => {println!("{}", e); continue;}
+            Err(e) => {eprintln!("cbor fail{}", e); frame.save(); continue;}
         };
         let c2j = cbor.to_json();
         let value: serde_json::Value =

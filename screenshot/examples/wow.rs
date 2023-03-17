@@ -1,5 +1,4 @@
 use tokio::sync::mpsc::{channel, error};
-use win_screenshot::addon::*;
 use wow_serdes::*;
 
 #[tokio::main]
@@ -7,7 +6,7 @@ async fn main() {
     let (tx, mut rx) = channel(100);
     let mut handles = vec![];
     let h = tokio::spawn(async move {
-        let hwnd = find_window("World of Warcraft").unwrap();
+        let hwnd = win_screenshot::utils::find_window("World of Warcraft").expect("Couldn't find window");
         read_wow(hwnd, tx).await;
     });
     handles.push(h);
@@ -32,7 +31,7 @@ async fn main() {
     });
     handles.push(h);
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("Thread exited");
     }
 }
 
