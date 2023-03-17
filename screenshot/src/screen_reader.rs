@@ -7,6 +7,9 @@ use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 use crate::*;
 
+static CAPTURE_MAX_W: u32 = 500;
+static CAPTURE_MAX_H: u32 = 6;
+
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     let r = pixel[0] as u32;
     let g = pixel[1] as u32;
@@ -22,7 +25,7 @@ fn decode_header(header: u32) -> (u8, u8, u8) {
     (size, checksum, clock)
 }
 
-fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8)
+fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
                                             -> Result<Rgba<u8>, &'static str> {
     let pixels = (0..height)
         .filter_map(|y| Some(img.get_pixel(x, y as u32)))
@@ -49,7 +52,7 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u8)
 struct Frame {
     size: u8,
     checksum: u8,
-    height: u8,
+    height: u32,
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
@@ -102,7 +105,6 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     let mut clock_old:u32 = u32::MAX;
     let mut total_packets = 0;
     let mut good_packets = 0;
-    let pixel_height: u8 = 6;
     loop {
         match hwnd_exists(hwnd) {
             WindowStatus::Destroyed => break,
@@ -112,10 +114,10 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             },
             _ => {},
         }
-        let s = get_screen(hwnd, 400, pixel_height as u32);
 
+        let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
         total_packets += 1;
-        let pixel = match pixel_validate_get(&s, 0, pixel_height) {
+        let pixel = match pixel_validate_get(&s, 0, CAPTURE_MAX_H) {
             Ok(o) => o,
             Err(e) => {
                 eprintln!("bad header pixel {}", e);
@@ -127,7 +129,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         let mut frame = Frame {
             size: size,
             checksum: checksum_rx,
-            height: pixel_height,
+            height: CAPTURE_MAX_H,
             img: s
         };
         if clock_old == clock as u32 {
