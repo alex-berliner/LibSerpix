@@ -6,22 +6,20 @@ edition = "2021"
 [lib]
 name = "wow_serdes"
 
+[[bin]]
+name = "wow"
+path = "src/bin/wow.rs"
+
 [dependencies]
-image = "0.24"
-windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps"] }
-win-screenshot = { version = "3.0.1" }
 cbor = "0.4.1"
-rustc-serialize = "0.3.24"
 devtimer = "3.0.0"
-tokio = {version = "1.23.0", features = ["full"]}
-anyhow = "1.0.68"
-futures = "0.3.25"
-futures-util = "0.3.25"
-float-cmp = "0.9.0"
-time-test = "0.2.3"
+image = "0.24"
+rustc-serialize = "0.3.24"
 serde_json = "1.0.94"
-qshot = "0.1.2"
+tokio = {version = "1.23.0", features = ["full"]}
+win-screenshot = "3.0.1"
 winapi = { version = "0.3", features = ["winuser"] }
+windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps"] }
 
 [profile.dev.package.win-screenshot]
 opt-level = 3
