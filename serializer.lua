@@ -36,9 +36,7 @@ function serializer.CombatEventHandler(event, ...)
 end
 
 local function init_user_serialized_data()
-    serializer.vals.tx_healing = "sss"
-    serializer.vals.tx_overhealing = 0
-    serializer.vals.tx_damage = 0
+    serializer.vals.a = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 end
 
 function get_serializer()

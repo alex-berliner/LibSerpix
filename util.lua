@@ -38,6 +38,7 @@ function bitshift_left(n, k)
 function set_texture_from_arr(t, c)
     t.Texture:SetColorTexture(c[1], c[2], c[3])
 end
+
 function fixedDecimalToColor(f)
     if f > FLOAT_MAX then
         -- print("Number too big to be passed as a fixed-point decimal")
@@ -84,5 +85,5 @@ end
 local cbor = get_cbor()
 function getBytesRemaining(serializer)
     local t = cbor.encode(serializer.vals)
-    return 300-#t
+    return 512*2-1-#t
 end

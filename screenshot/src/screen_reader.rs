@@ -8,7 +8,7 @@ use tokio::sync::mpsc::Sender;
 use std::time::Instant;
 use crate::*;
 
-static CAPTURE_MAX_W: u32 = 500;
+static CAPTURE_MAX_W: u32 = 900;
 static CAPTURE_MAX_H: u32 = 6;
 
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
@@ -119,7 +119,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         let start = Instant::now();
         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
         let duration = start.elapsed();
-        eprintln!("Time elapsed: {:?}", duration);
+        // eprintln!("Time elapsed: {:?}", duration);
         total_packets += 1;
         let pixel = match pixel_validate_get(&s, 0, CAPTURE_MAX_H) {
             Ok(o) => o,
@@ -153,7 +153,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         // remove padding bytes
         let bytevec = &bytevec[..size.into()];
 
-        let checksum = bytevec.iter().fold(0, |acc, x| (acc + *x as u32)%256);
+        let checksum = bytevec.iter().fold(0, |acc, x| (acc + *x as u32)%128);
         if frame.checksum as u32 != checksum {
             eprintln!("checksum doesn't match");
             continue;

@@ -1,10 +1,8 @@
--- Notes: max table size is 300
 local BOX_WIDTH = 1
 local BOX_HEIGHT = 6
 -- max pixel boxes, most will usually be turned off.
 -- no cost to increasing this besides increased screen real estate
--- 100 is the max because lua strings appear not to be able to hold more than 300 bytes
-local NUM_BOXES = 100
+local NUM_BOXES = 512
 -- pixel boxes that numbers are stored in
 -- stores rbg valuess that hold 0xFFFFFF each
 -- can sometimes (~once per 1000 frames) be inaccurate, so should be accounted for
@@ -71,12 +69,7 @@ function count_bits(num)
 
 local clock = 0
 function OnUpdate(self, elapsed)
-    -- serializer.vals.tx_healing = 0
-    -- serializer.vals.tx_overhealing = 0
-    -- serializer.vals.tx_damage = 0
-    -- print(getBytesRemaining(serializer))
     local t = cbor.encode(serializer.vals)
-    -- print(300-#t)
     local checksum = 0
     -- serializer.vals = {}
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
@@ -101,9 +94,10 @@ function OnUpdate(self, elapsed)
     -- encode_size : 10 bits
     -- checksum: 8 bits
     -- clock : 6 bits
+    -- print("getBytesRemaining", getBytesRemaining(serializer))
     header = bitshift_left(encode_size, 14) + bitshift_left(checksum, 6) + clock
-    print(string.format("0x%08x", header))
-    print(header)
+    print(string.format("0x%02x", checksum))
+    -- print(header)
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
     clock = Modulo(clock+1, 64)
