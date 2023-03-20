@@ -82,11 +82,11 @@ function OnUpdate(self, elapsed)
     -- print(hex_dump(t, #t))
     for i = 1, #t, 3 do
         local r = string.byte(t, i)
-        checksum = Modulo(checksum+r, 256)
+        checksum = Modulo(checksum+r, 128)
         local g = string.byte(t, i+1)
-        checksum = Modulo(checksum+g, 256)
+        checksum = Modulo(checksum+g, 128)
         local b = string.byte(t, i+2)
-        checksum = Modulo(checksum+b, 256)
+        checksum = Modulo(checksum+b, 128)
         box_index = math.floor(i/3)+1
         box_index = box_index + 1 -- added for header
         set_texture_from_arr(boxes[box_index], rbgToColor(r,g,b))
@@ -96,7 +96,8 @@ function OnUpdate(self, elapsed)
     -- clock : 6 bits
     -- print("getBytesRemaining", getBytesRemaining(serializer))
     header = bitshift_left(encode_size, 14) + bitshift_left(checksum, 6) + clock
-    print(string.format("0x%02x", checksum))
+    -- print(string.format("0x%02x", checksum))
+    -- print(hex_dump(t, #t))
     -- print(header)
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
