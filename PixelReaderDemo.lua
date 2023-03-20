@@ -97,7 +97,7 @@ function OnUpdate(self, elapsed)
     -- print("getBytesRemaining", getBytesRemaining(serializer))
     header = bitshift_left(encode_size, 14) + bitshift_left(checksum, 6) + clock
     -- print(string.format("0x%02x", checksum))
-    -- print(hex_dump(t, #t))
+    print(hex_dump(t, #t))
     -- print(header)
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))

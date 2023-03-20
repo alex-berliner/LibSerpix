@@ -50,6 +50,13 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
     }
 }
 
+fn dump(a: &Vec<u8>) {
+    for b in a.iter() {
+        print!("{:#02X} ", b);
+    }
+    println!("\n{} bytes summed", a.len());
+}
+
 struct RxBytes {
     b: Vec<u8>,
     checksum: u8,
@@ -203,6 +210,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             continue;
         }
         let w = RxBytes::new(frame.get_payload().unwrap());
+        dump(&w.b);
         println!("frame.size: {}", frame.size);
         if frame.checksum != w.checksum {
             eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
@@ -249,15 +257,13 @@ mod tests {
             Err(e) => { println!("frame decode error {}", e); assert!(false); return; },
         };
         let w = RxBytes::new(frame.get_payload().unwrap());
+        dump(&w.b);
         println!("frame.size: {}", frame.size);
         if frame.checksum != w.checksum {
             eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
                 frame.checksum,
                 w.checksum);
-            for b in w.b.iter() {
-                print!("{:#02X} ", b);
-            }
-            println!("{} bytes summed", w.b.len());
+            dump(&w.b);
             assert!(false);
             return;
         }
