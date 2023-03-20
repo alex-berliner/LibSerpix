@@ -50,6 +50,18 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
     }
 }
 
+struct RxBytes {
+    b: Vec<u8>,
+    checksum: u8,
+}
+
+impl RxBytes {
+    pub fn new(b: Vec<u8>) -> Self {
+        let checksum = b.iter().fold(0, |acc, x| (acc + *x as u32)%128) as u8;
+        Self { b, checksum }
+    }
+}
+
 struct Frame {
     size: u8,
     checksum: u8,
@@ -60,7 +72,7 @@ struct Frame {
 
 impl Frame {
     #[allow(dead_code)]
-    fn save(&mut self) {
+    fn save(&self) {
         let posix_time =
             SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut file_name = posix_time.to_string();
@@ -68,7 +80,7 @@ impl Frame {
         self.img.save(file_name).unwrap();
     }
 
-    fn pixel_validate_get(&mut self, x: u32) -> Result<Rgba<u8>, &'static str> {
+    fn pixel_validate_get(&self, x: u32) -> Result<Rgba<u8>, &'static str> {
         pixel_validate_get(&self.img, x, self.height)
     }
 
@@ -86,7 +98,7 @@ impl Frame {
         v
     }
 
-    fn get_payload_pixels(&mut self) -> Result<Vec<Rgba<u8>>, &'static str> {
+    fn get_payload_pixels(&self) -> Result<Vec<Rgba<u8>>, &'static str> {
         let num_pixels = (self.size as f64/3.0).ceil() as u32;
         let pix_vec: Result<Vec<_>, _> =
             (1..=num_pixels)
@@ -95,7 +107,7 @@ impl Frame {
         pix_vec
     }
 
-    fn get_payload(&mut self) -> Result<Vec<u8>, &'static str> {
+    fn get_payload(&self) -> Result<Vec<u8>, &'static str> {
         let myvec = match self.get_payload_pixels() {
             Ok(o) => o,
             Err(e) => {
@@ -143,6 +155,26 @@ fn frame_from_imgbuf(img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Frame, &'sta
     })
 }
 
+fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
+    let mut d = Decoder::from_bytes(b.clone());
+    let cbor_in = match d.items().next() {
+        Some(o) => o,
+        None => {
+            return Err("cbor fail 1");
+        }
+    };
+    let cbor = match cbor_in {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("cbor fail: {}", e);
+            return Err("cbor fail 2");
+        }
+    };
+    let c2j = cbor.to_json();
+    // let value: serde_json::Value =
+    Ok(serde_json::from_str(&c2j.to_string()).unwrap())
+}
+
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     let mut clock_old:u32 = u32::MAX;
     let mut total_packets = 0;
@@ -162,7 +194,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
         let duration = start.elapsed();
         // eprintln!("Time elapsed: {:?}", duration);
-        let mut frame = match frame_from_imgbuf(s) {
+        let frame = match frame_from_imgbuf(s) {
             Ok(v) => v,
             Err(e) => { println!("frame decode error {}", e); continue; },
         };
@@ -170,15 +202,16 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             total_packets -= 1;
             continue;
         }
-        let bytevec = frame.get_payload().unwrap();
-
-        let checksum = bytevec.iter().fold(0, |acc, x| (acc + *x as u32)%128);
-        if frame.checksum as u32 != checksum {
-            eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}", frame.checksum, checksum);
-            for b in bytevec.iter() {
+        let w = RxBytes::new(frame.get_payload().unwrap());
+        println!("frame.size: {}", frame.size);
+        if frame.checksum != w.checksum {
+            eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
+                frame.checksum,
+                w.checksum);
+            for b in w.b.iter() {
                 print!("{:#02X} ", b);
             }
-            println!("{} bytes summed", bytevec.len());
+            println!("{} bytes summed", w.b.len());
             continue;
         }
         good_packets += 1;
@@ -186,26 +219,14 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             ((total_packets - good_packets) as f32) / total_packets as f32,
             total_packets,
             good_packets);
-        let mut d = Decoder::from_bytes(bytevec);
-        let cbor_in = match d.items().next() {
-            Some(o) => o,
-            None => {
-                eprintln!("cbor fail");
-                frame.save();
-                continue;
-            }
-        };
-        let cbor = match cbor_in {
-            Ok(o) => o,
+        let value: serde_json::Value = match cbor_parse(&w.b) {
+            Ok(v) => v,
             Err(e) => {
-                eprintln!("cbor fail: {}", e);
                 frame.save();
+                println!("{}", e);
                 continue;
             }
         };
-        let c2j = cbor.to_json();
-        let value: serde_json::Value =
-                        serde_json::from_str(&c2j.to_string()).unwrap();
         if value.is_object() {
             tx.send(value).await.expect("json send failed");
         }
@@ -216,3 +237,38 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         }
     }
 }
+
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_profile_region_screenshot() {
+        let img = image::open("assets/longstring.png").unwrap();
+        let frame = match frame_from_imgbuf(img.to_rgba8()) {
+            Ok(v) => v,
+            Err(e) => { println!("frame decode error {}", e); assert!(false); return; },
+        };
+        let w = RxBytes::new(frame.get_payload().unwrap());
+        println!("frame.size: {}", frame.size);
+        if frame.checksum != w.checksum {
+            eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
+                frame.checksum,
+                w.checksum);
+            for b in w.b.iter() {
+                print!("{:#02X} ", b);
+            }
+            println!("{} bytes summed", w.b.len());
+            assert!(false);
+            return;
+        }
+        let value: serde_json::Value = match cbor_parse(&w.b) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("frame decode error {}", e);
+                assert!(false);
+                return;
+            },
+        };
+    }
+}
+
