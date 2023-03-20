@@ -54,6 +54,7 @@ struct Frame {
     size: u8,
     checksum: u8,
     height: u32,
+    clock: u8,
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
@@ -93,6 +94,28 @@ impl Frame {
             .collect();
         pix_vec
     }
+
+    fn get_payload(&mut self) -> Result<Vec<u8>, &'static str> {
+        let myvec = match self.get_payload_pixels() {
+            Ok(o) => o,
+            Err(e) => {
+                eprintln!("payload err {}", e);
+                return Err("payload err");
+                // continue;
+            }
+        };
+        let mut bytevec: Vec<u8> = Vec::new();
+        for p in myvec.iter() {
+            bytevec.push(p[0]);
+            bytevec.push(p[1]);
+            bytevec.push(p[2]);
+        }
+        // remove padding bytes
+        while bytevec.len() != self.size as usize{
+            bytevec.pop();
+        }
+        Ok(bytevec)
+    }
 }
 
 fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
@@ -100,6 +123,24 @@ fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(buf.width, buf.height, buf.pixels).unwrap();
     crop_imm(&img, 0, 0, w, h).to_image()
+}
+
+fn frame_from_imgbuf(img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Frame, &'static str>{
+    let pixel = match pixel_validate_get(&img, 0, CAPTURE_MAX_H) {
+        Ok(o) => o,
+        Err(e) => {
+            return Err("bad header pixel".into());
+        }
+    };
+    let header = color_to_integer(&pixel);
+    let (size, checksum_rx, clock) = decode_header(header);
+    Ok(Frame {
+        size: size,
+        checksum: checksum_rx,
+        height: CAPTURE_MAX_H,
+        clock: clock,
+        img: img
+    })
 }
 
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
@@ -115,59 +156,52 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             },
             _ => {},
         }
+        total_packets += 1;
 
         let start = Instant::now();
         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
         let duration = start.elapsed();
         // eprintln!("Time elapsed: {:?}", duration);
-        total_packets += 1;
-        let pixel = match pixel_validate_get(&s, 0, CAPTURE_MAX_H) {
-            Ok(o) => o,
-            Err(e) => {
-                eprintln!("bad header pixel {}", e);
-                continue;
-            }
+        let mut frame = match frame_from_imgbuf(s) {
+            Ok(v) => v,
+            Err(e) => { println!("frame decode error {}", e); continue; },
         };
-        let header = color_to_integer(&pixel);
-        let (size, checksum_rx, clock) = decode_header(header);
-        let mut frame = Frame {
-            size: size,
-            checksum: checksum_rx,
-            height: CAPTURE_MAX_H,
-            img: s
-        };
-        if clock_old == clock as u32 {
+        if clock_old == frame.clock as u32 {
             total_packets -= 1;
             continue;
         }
-        let myvec = match frame.get_payload_pixels() {
-            Ok(o) =>  { o },
-            Err(e) => { eprintln!("payload err {}", e); continue; }
-        };
-        let mut bytevec: Vec<u8> = Vec::new();
-        for p in myvec.iter() {
-            bytevec.push(p[0]);
-            bytevec.push(p[1]);
-            bytevec.push(p[2]);
-        }
-        // remove padding bytes
-        let bytevec = &bytevec[..size.into()];
+        let bytevec = frame.get_payload().unwrap();
 
         let checksum = bytevec.iter().fold(0, |acc, x| (acc + *x as u32)%128);
         if frame.checksum as u32 != checksum {
-            eprintln!("checksum doesn't match");
+            eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}", frame.checksum, checksum);
+            for b in bytevec.iter() {
+                print!("{:#02X} ", b);
+            }
+            println!("{} bytes summed", bytevec.len());
             continue;
         }
         good_packets += 1;
-        eprintln!("{} {} {}",((total_packets - good_packets) as f32) / total_packets as f32, total_packets, good_packets);
+        eprintln!("{} {} {}",
+            ((total_packets - good_packets) as f32) / total_packets as f32,
+            total_packets,
+            good_packets);
         let mut d = Decoder::from_bytes(bytevec);
         let cbor_in = match d.items().next() {
             Some(o) => o,
-            None => {eprintln!("cbor fail"); frame.save(); continue;}
+            None => {
+                eprintln!("cbor fail");
+                frame.save();
+                continue;
+            }
         };
         let cbor = match cbor_in {
             Ok(o) => o,
-            Err(e) => {eprintln!("cbor fail{}", e); frame.save(); continue;}
+            Err(e) => {
+                eprintln!("cbor fail: {}", e);
+                frame.save();
+                continue;
+            }
         };
         let c2j = cbor.to_json();
         let value: serde_json::Value =
@@ -175,7 +209,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         if value.is_object() {
             tx.send(value).await.expect("json send failed");
         }
-        clock_old = clock.into();
+        clock_old = frame.clock.into();
         if total_packets > 10000 {
             total_packets = 0;
             good_packets = 0;
