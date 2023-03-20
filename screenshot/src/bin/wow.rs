@@ -34,12 +34,3 @@ async fn main() {
         handle.await.expect("Thread exited");
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_profile_region_screenshot() {
-    }
-}
