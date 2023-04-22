@@ -2,6 +2,10 @@
 
 serializer = {}
 
+function serializer.user_update()
+    -- manipulate data after system events are processed
+end
+
 function serializer.CombatEventHandler(event, ...)
     function parse_heal(...)
         local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
@@ -35,12 +39,11 @@ function serializer.CombatEventHandler(event, ...)
     parse_event(CombatLogGetCurrentEventInfo())
 end
 
-local function init_user_serialized_data()
-    serializer.vals.a = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-end
-
 function get_serializer()
     return serializer
+end
+
+local function init_user_serialized_data()
 end
 
 local function serializer_init()

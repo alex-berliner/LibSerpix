@@ -84,7 +84,8 @@ impl Frame {
             SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut file_name = posix_time.to_string();
         file_name.push_str(".bmp");
-        self.img.save(file_name).unwrap();
+        self.img.save(&file_name).unwrap();
+        eprintln!("Save {}", file_name);
     }
 
     fn pixel_validate_get(&self, x: u32) -> Result<Rgba<u8>, &'static str> {
@@ -120,7 +121,6 @@ impl Frame {
             Err(e) => {
                 eprintln!("payload err {}", e);
                 return Err("payload err");
-                // continue;
             }
         };
         let mut bytevec: Vec<u8> = Vec::new();
@@ -210,32 +210,35 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             continue;
         }
         let w = RxBytes::new(frame.get_payload().unwrap());
-        dump(&w.b);
+        // dump(&w.b);
         println!("frame.size: {}", frame.size);
         if frame.checksum != w.checksum {
             eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
                 frame.checksum,
                 w.checksum);
-            for b in w.b.iter() {
-                print!("{:#02X} ", b);
+            if frame.checksum == w.checksum + 1 {
+                println!("off by 1");
+                frame.save();
             }
-            println!("{} bytes summed", w.b.len());
             continue;
         }
         good_packets += 1;
         eprintln!("{} {} {}",
-            ((total_packets - good_packets) as f32) / total_packets as f32,
+            1.0-((total_packets - good_packets) as f32) / total_packets as f32,
             total_packets,
             good_packets);
         let value: serde_json::Value = match cbor_parse(&w.b) {
             Ok(v) => v,
             Err(e) => {
-                frame.save();
+                // frame.save();
                 println!("{}", e);
                 continue;
             }
         };
         if value.is_object() {
+            // frame.save();
+            // println!("OK");
+            // dump(&w.b);
             tx.send(value).await.expect("json send failed");
         }
         clock_old = frame.clock.into();

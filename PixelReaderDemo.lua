@@ -69,9 +69,10 @@ function count_bits(num)
 
 local clock = 0
 function OnUpdate(self, elapsed)
+    serializer.user_update()
     local t = cbor.encode(serializer.vals)
     local checksum = 0
-    -- serializer.vals = {}
+    serializer.vals = {}
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     encode_size = #t
     while (Modulo(#t, 3) ~= 0) do
@@ -79,7 +80,6 @@ function OnUpdate(self, elapsed)
     end
     -- pack string bytes into pixels
     -- cbor table isn't ordered so keep header as first pixel
-    -- print(hex_dump(t, #t))
     for i = 1, #t, 3 do
         local r = string.byte(t, i)
         checksum = Modulo(checksum+r, 128)
@@ -94,11 +94,7 @@ function OnUpdate(self, elapsed)
     -- encode_size : 10 bits
     -- checksum: 8 bits
     -- clock : 6 bits
-    -- print("getBytesRemaining", getBytesRemaining(serializer))
     header = bitshift_left(encode_size, 14) + bitshift_left(checksum, 6) + clock
-    -- print(string.format("0x%02x", checksum))
-    print(hex_dump(t, #t))
-    -- print(header)
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
     clock = Modulo(clock+1, 64)
