@@ -18,12 +18,11 @@ fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     r * 256 * 256 + g * 256 + b
 }
 
-fn decode_header(header: u32) -> (u8, u8, u8) {
-    let size = (header >> 14) as u8;
-    let checksum = ((header >> 6) & 0xff) as u8;
-    let clock = (header & 0xfC) as u8;
+fn decode_header(header: u32) -> (u16, u8) {
+    let checksum = (header & 0xFF) as u8;
+    let size = ((header >> 8) & 0xFFFF) as u16;
 
-    (size, checksum, clock)
+    (size, checksum)
 }
 
 fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
@@ -64,16 +63,16 @@ struct RxBytes {
 
 impl RxBytes {
     pub fn new(b: Vec<u8>) -> Self {
-        let checksum = b.iter().fold(0, |acc, x| (acc + *x as u32)%128) as u8;
+        let checksum = b.iter().fold(0, |acc, x| (acc + *x as u32)%256) as u8;
         Self { b, checksum }
     }
 }
 
 struct Frame {
-    size: u8,
+    size: u16,
     checksum: u8,
     height: u32,
-    clock: u8,
+    // clock: u8,
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
@@ -152,12 +151,12 @@ fn frame_from_imgbuf(img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Frame, &'sta
         }
     };
     let header = color_to_integer(&pixel);
-    let (size, checksum_rx, clock) = decode_header(header);
+    let (size, checksum_rx) = decode_header(header);
     Ok(Frame {
         size: size,
         checksum: checksum_rx,
         height: CAPTURE_MAX_H,
-        clock: clock,
+        // clock: clock,
         img: img
     })
 }
@@ -205,10 +204,10 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             Ok(v) => v,
             Err(e) => { println!("frame decode error {}", e); continue; },
         };
-        if clock_old == frame.clock as u32 {
-            total_packets -= 1;
-            continue;
-        }
+        // // if clock_old == frame.clock as u32 {
+        // //     total_packets -= 1;
+        // //     continue;
+        // // }
         let w = RxBytes::new(frame.get_payload().unwrap());
         // dump(&w.b);
         println!("frame.size: {}", frame.size);
@@ -241,11 +240,11 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             // dump(&w.b);
             tx.send(value).await.expect("json send failed");
         }
-        clock_old = frame.clock.into();
-        if total_packets > 10000 {
-            total_packets = 0;
-            good_packets = 0;
-        }
+        // clock_old = frame.clock.into();
+        // if total_packets > 10000 {
+        //     total_packets = 0;
+        //     good_packets = 0;
+        // }
     }
 }
 
