@@ -1,8 +1,5 @@
 local BOX_WIDTH = 1
 local BOX_HEIGHT = 6
--- max pixel boxes, most will usually be turned off.
--- no cost to increasing this besides increased screen real estate
-local NUM_BOXES = 512
 -- pixel boxes that numbers are stored in
 -- stores rbg valuess that hold 0xFFFFFF each
 -- can sometimes (~once per 1000 frames) be inaccurate, so should be accounted for
@@ -72,7 +69,7 @@ function OnUpdate(self, elapsed)
     serializer.user_update()
     local t = cbor.encode(serializer.vals)
     local checksum = 0
-    serializer.vals = {}
+    -- serializer.vals = {}
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     encode_size = #t
     while (Modulo(#t, 3) ~= 0) do

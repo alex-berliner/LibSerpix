@@ -1,5 +1,4 @@
 -- User modifiable file to change serialized data
-
 serializer = {}
 
 function serializer.user_update()
