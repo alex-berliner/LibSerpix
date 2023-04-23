@@ -210,7 +210,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         // // }
         let w = RxBytes::new(frame.get_payload().unwrap());
         // dump(&w.b);
-        println!("frame.size: {}", frame.size);
+        // println!("frame.size: {}", frame.size);
         if frame.checksum != w.checksum {
             eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
                 frame.checksum,
@@ -222,10 +222,10 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             continue;
         }
         good_packets += 1;
-        eprintln!("{} {} {}",
-            1.0-((total_packets - good_packets) as f32) / total_packets as f32,
-            total_packets,
-            good_packets);
+        // eprintln!("{} {} {}",
+        //     1.0-((total_packets - good_packets) as f32) / total_packets as f32,
+        //     total_packets,
+        //     good_packets);
         let value: serde_json::Value = match cbor_parse(&w.b) {
             Ok(v) => v,
             Err(e) => {

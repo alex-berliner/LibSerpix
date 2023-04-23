@@ -69,7 +69,7 @@ function OnUpdate(self, elapsed)
     serializer.user_update()
     local t = cbor.encode(serializer.vals)
     local checksum = 0
-    -- serializer.vals = {}
+    serializer.vals = {}
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     encode_size = #t
     while (Modulo(#t, 3) ~= 0) do

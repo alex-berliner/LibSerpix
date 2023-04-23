@@ -4,7 +4,6 @@ serializer = {}
 function serializer.user_update()
     -- manipulate data after system events are processed
 end
-
 function serializer.CombatEventHandler(event, ...)
     function parse_heal(...)
         local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
@@ -15,6 +14,10 @@ function serializer.CombatEventHandler(event, ...)
             -- Add values to serializer
             serializer.vals.tx_overhealing = (serializer.vals.tx_overhealing or 0) + overhealing
             serializer.vals.tx_healing = (serializer.vals.tx_healing or 0) + healing - overhealing
+            local questDescription, questObjectives = GetQuestLogQuestText()
+            serializer.vals.questDescription = questObjectives
+            serializer.vals.questObjectives = questObjectives
+
         end
     end
     function parse_dmg(...)
