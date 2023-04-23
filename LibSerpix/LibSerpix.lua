@@ -5,7 +5,6 @@ local BOX_HEIGHT = 6
 -- can sometimes (~once per 1000 frames) be inaccurate, so should be accounted for
 local boxes = {}
 local _, ADDONSELF = ...
-
 local cbor = get_cbor()
 local serializer = get_serializer()
 

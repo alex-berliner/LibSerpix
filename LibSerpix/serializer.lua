@@ -1,9 +1,12 @@
 -- User modifiable file to change serialized data
+LibSerpix = {}
 serializer = {}
+LibSerpix.serializer = serializer
 
 function serializer.user_update()
     -- manipulate data after system events are processed
 end
+
 function serializer.CombatEventHandler(event, ...)
     function parse_heal(...)
         local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
