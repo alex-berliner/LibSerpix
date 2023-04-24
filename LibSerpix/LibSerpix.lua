@@ -4,18 +4,32 @@ local BOX_HEIGHT = 6
 -- stores rbg valuess that hold 0xFFFFFF each
 -- can sometimes (~once per 1000 frames) be inaccurate, so should be accounted for
 local boxes = {}
+local addons = {}
 local _, ADDONSELF = ...
 local cbor = get_cbor()
 
+LibSerpix = {}
 function init()
     -- TODO: add config section
-    LibSerpix = {}
+    LibSerpix.addons = {}
     serializer = {}
     serializer.vals = {}
-    serializer.vals.c = {}
+    serializer.vals.p = {}
     LibSerpix.serializer = serializer
 
     create_boxes()
+end
+
+function LibSerpix.register_addon(addon_name)
+    addons[#addons+1] = addon_name
+end
+
+function LibSerpix.unregister_addon(addon_name)
+    for i = #addons, 1, -1 do
+        if addons[i] == addon_name then
+            table.remove(addons, i)
+        end
+    end
 end
 
 function create_boxes()
@@ -54,10 +68,13 @@ end
 local clock = 0
 function OnUpdate(self, elapsed)
     serializer.user_update()
-    serializer.vals.c.clock = clock
+    serializer.vals.p.clock = clock
     local t = cbor.encode(serializer.vals)
     local checksum = 0
-    serializer.vals.s = {}
+    serializer.vals.u = {}
+    for i = 1, #addons do
+        serializer.vals.u[addons[i]] = {}
+    end
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     encode_size = #t
     while (Modulo(#t, 3) ~= 0) do

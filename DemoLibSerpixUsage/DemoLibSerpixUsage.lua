@@ -10,6 +10,7 @@ function init()
     -- the COMBAT_LOG_EVENT_UNFILTERED event
     f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     f:SetScript("OnEvent", OnCombatLogEvent)
+    LibSerpix.register_addon("Demo")
 end
 
 -- Define the OnCombatLogEvent function
@@ -25,11 +26,11 @@ function CombatEventHandler(event, ...)
         if sourceGUID == UnitGUID("player") then
             healing, overhealing, absorbed, critical = select(15, ...)
             -- Add values to serializer
-            LibSerpix.serializer.vals.s.tx_overhealing = (LibSerpix.serializer.vals.s.tx_overhealing or 0) + overhealing
-            LibSerpix.serializer.vals.s.tx_healing = (LibSerpix.serializer.vals.s.tx_healing or 0) + healing - overhealing
+            LibSerpix.serializer.vals.u.Demo.tx_overhealing = (LibSerpix.serializer.vals.u.Demo.tx_overhealing or 0) + overhealing
+            LibSerpix.serializer.vals.u.Demo.tx_healing = (LibSerpix.serializer.vals.u.Demo.tx_healing or 0) + healing - overhealing
             local questDescription, questObjectives = GetQuestLogQuestText()
-            LibSerpix.serializer.vals.s.questDescription = questObjectives
-            LibSerpix.serializer.vals.s.questObjectives = questObjectives
+            LibSerpix.serializer.vals.u.Demo.questDescription = questObjectives
+            LibSerpix.serializer.vals.u.Demo.questObjectives = questObjectives
 
         end
     end
@@ -39,7 +40,7 @@ function CombatEventHandler(event, ...)
         if sourceGUID == UnitGUID("player") then
             amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = select(15, ...)
             -- Add values to LibSerpix.serializer
-            LibSerpix.serializer.vals.s.tx_damage = (LibSerpix.serializer.vals.s.tx_damage or 0) + amount
+            LibSerpix.serializer.vals.u.Demo.tx_damage = (LibSerpix.serializer.vals.u.Demo.tx_damage or 0) + amount
         end
     end
     function parse_event(...)
