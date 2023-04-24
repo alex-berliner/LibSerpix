@@ -2,7 +2,6 @@ local BOX_WIDTH = 1
 local BOX_HEIGHT = 6
 -- pixel boxes that numbers are stored in
 -- stores rbg valuess that hold 0xFFFFFF each
--- can sometimes (~once per 1000 frames) be inaccurate, so should be accounted for
 local boxes = {}
 local addons = {}
 local _, ADDONSELF = ...
@@ -10,7 +9,6 @@ local cbor = get_cbor()
 
 LibSerpix = {}
 function init()
-    -- TODO: add config section
     LibSerpix.addons = {}
     serializer = {}
     serializer.vals = {}
@@ -67,7 +65,6 @@ end
 
 local clock = 0
 function OnUpdate(self, elapsed)
-    serializer.user_update()
     serializer.vals.p.clock = clock
     local t = cbor.encode(serializer.vals)
     local checksum = 0

@@ -1,8 +1,3 @@
--- perform this before serializing
-function LibSerpix.serializer.user_update()
-    -- serializer.vals.a = "a"
-end
-
 function init()
     UIParent:SetScript("OnUpdate", OnUpdate)
     f = CreateFrame("Frame")
@@ -39,7 +34,6 @@ function CombatEventHandler(event, ...)
         local spellId, spellName, spellSchool = select(12, ...)
         if sourceGUID == UnitGUID("player") then
             amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = select(15, ...)
-            -- Add values to LibSerpix.serializer
             LibSerpix.serializer.vals.u.Demo.tx_damage = (LibSerpix.serializer.vals.u.Demo.tx_damage or 0) + amount
         end
     end
