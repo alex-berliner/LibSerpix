@@ -14,10 +14,10 @@ end
 
 -- Define the OnCombatLogEvent function
 function OnCombatLogEvent(event, ...)
-    serializer.CombatEventHandler(event, ...)
+    CombatEventHandler(event, ...)
 end
 
-function serializer.CombatEventHandler(event, ...)
+function CombatEventHandler(event, ...)
     function parse_heal(...)
         local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = ...
         local spellId, spellName, spellSchool = select(12, ...)
@@ -25,11 +25,12 @@ function serializer.CombatEventHandler(event, ...)
         if sourceGUID == UnitGUID("player") then
             healing, overhealing, absorbed, critical = select(15, ...)
             -- Add values to serializer
-            serializer.vals.tx_overhealing = (serializer.vals.tx_overhealing or 0) + overhealing
-            serializer.vals.tx_healing = (serializer.vals.tx_healing or 0) + healing - overhealing
+            LibSerpix.serializer.vals.s.tx_overhealing = (LibSerpix.serializer.vals.s.tx_overhealing or 0) + overhealing
+            LibSerpix.serializer.vals.s.tx_healing = (LibSerpix.serializer.vals.s.tx_healing or 0) + healing - overhealing
             local questDescription, questObjectives = GetQuestLogQuestText()
-            serializer.vals.questDescription = questObjectives
-            serializer.vals.questObjectives = questObjectives
+            LibSerpix.serializer.vals.s.questDescription = questObjectives
+            LibSerpix.serializer.vals.s.questObjectives = questObjectives
+
         end
     end
     function parse_dmg(...)
@@ -37,8 +38,8 @@ function serializer.CombatEventHandler(event, ...)
         local spellId, spellName, spellSchool = select(12, ...)
         if sourceGUID == UnitGUID("player") then
             amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = select(15, ...)
-            -- Add values to serializer
-            serializer.vals.tx_damage = (serializer.vals.tx_damage or 0) + amount
+            -- Add values to LibSerpix.serializer
+            LibSerpix.serializer.vals.s.tx_damage = (LibSerpix.serializer.vals.s.tx_damage or 0) + amount
         end
     end
     function parse_event(...)

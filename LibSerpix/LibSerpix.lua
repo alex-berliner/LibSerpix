@@ -12,6 +12,7 @@ function init()
     LibSerpix = {}
     serializer = {}
     serializer.vals = {}
+    serializer.vals.c = {}
     LibSerpix.serializer = serializer
 
     create_boxes()
@@ -50,12 +51,13 @@ function show_boxes(n)
     boxes["active_boxes"] = n
 end
 
--- local clock = 0
+local clock = 0
 function OnUpdate(self, elapsed)
     serializer.user_update()
+    serializer.vals.c.clock = clock
     local t = cbor.encode(serializer.vals)
     local checksum = 0
-    serializer.vals = {}
+    serializer.vals.s = {}
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     encode_size = #t
     while (Modulo(#t, 3) ~= 0) do
@@ -77,7 +79,7 @@ function OnUpdate(self, elapsed)
     header = checksum + bitshift_left(encode_size, 8)
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
-    -- clock = Modulo(clock+1, 64)
+    clock = Modulo(clock+1, 64)
 end
 
 init()
