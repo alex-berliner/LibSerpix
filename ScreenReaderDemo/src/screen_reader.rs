@@ -177,14 +177,13 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
         }
     };
     let c2j = cbor.to_json();
-    // let value: serde_json::Value =
     Ok(serde_json::from_str(&c2j.to_string()).unwrap())
 }
 
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
-    let mut clock_old:u32 = u32::MAX;
-    let mut total_packets = 0;
-    let mut good_packets = 0;
+    // let mut clock_old:u32 = u32::MAX;
+    // let mut total_packets = 0;
+    // let mut good_packets = 0;
     loop {
         match hwnd_exists(hwnd) {
             WindowStatus::Destroyed => break,
@@ -194,12 +193,11 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             },
             _ => {},
         }
-        total_packets += 1;
+        // total_packets += 1;
 
         let start = Instant::now();
         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
         let duration = start.elapsed();
-        // eprintln!("Time elapsed: {:?}", duration);
         let frame = match frame_from_imgbuf(s) {
             Ok(v) => v,
             Err(e) => { println!("frame decode error {}", e); continue; },
@@ -209,8 +207,6 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         // //     continue;
         // // }
         let w = RxBytes::new(frame.get_payload().unwrap());
-        // dump(&w.b);
-        // println!("frame.size: {}", frame.size);
         if frame.checksum != w.checksum {
             eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
                 frame.checksum,
@@ -221,26 +217,34 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             }
             continue;
         }
-        good_packets += 1;
+        // good_packets += 1;
         // eprintln!("{} {} {}",
         //     1.0-((total_packets - good_packets) as f32) / total_packets as f32,
         //     total_packets,
         //     good_packets);
-        let value: serde_json::Value = match cbor_parse(&w.b) {
+        let mut value: serde_json::Value = match cbor_parse(&w.b) {
             Ok(v) => v,
             Err(e) => {
                 // frame.save();
-                println!("{}", e);
+                eprintln!("{}", e);
                 continue;
             }
         };
+
+        // let clock = match value["p"]["clock"].as_u64() {
+        //     None => { println!("clock match failed"); continue; },
+        //     Some(v) => v as u32,
+        // };
+
         if value.is_object() {
-            // frame.save();
-            // println!("OK");
-            // dump(&w.b);
+            match value.as_object_mut() {
+                None => { eprintln!("no private field, very fishy"); },
+                Some(v) => {v.remove_entry("p");},
+            };
+
             tx.send(value).await.expect("json send failed");
         }
-        // clock_old = frame.clock.into();
+        // clock_old = clock;
         // if total_packets > 10000 {
         //     total_packets = 0;
         //     good_packets = 0;
