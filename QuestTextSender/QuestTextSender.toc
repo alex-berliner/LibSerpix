@@ -1,6 +1,6 @@
 ## Interface: 100002
 ## Version: 10.0.7
-## Title: LibSerpixUsageDemo
+## Title: QuestTextSender
 ## Author: Monorail
 ## Notes:
 ## SavedVariables:
@@ -8,4 +8,4 @@
 libs\LibSerpix\cbor.lua
 libs\LibSerpix\util.lua
 libs\LibSerpix\LibSerpix.lua
-LibSerpixUsageDemo.lua
+QuestTextSender.lua
