@@ -6,20 +6,15 @@ local BOX_HEIGHT = 6
 local boxes = {}
 local _, ADDONSELF = ...
 local cbor = get_cbor()
-local serializer = get_serializer()
 
 function init()
-    create_boxes()
-    UIParent:SetScript("OnUpdate", OnUpdate)
-    f = CreateFrame("Frame")
-    -- Register the OnCombatLogEvent function to the COMBAT_LOG_EVENT_UNFILTERED event
-    f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-    f:SetScript("OnEvent", OnCombatLogEvent)
-end
+    -- TODO: add config section
+    LibSerpix = {}
+    serializer = {}
+    serializer.vals = {}
+    LibSerpix.serializer = serializer
 
--- Define the OnCombatLogEvent function
-function OnCombatLogEvent(event, ...)
-    serializer.CombatEventHandler(event, ...)
+    create_boxes()
 end
 
 function create_boxes()
@@ -54,16 +49,8 @@ function show_boxes(n)
     end
     boxes["active_boxes"] = n
 end
-function count_bits(num)
-    local count = 0
-    while num > 0 do
-      count = count + 1
-      num = math.floor(num / 2)
-    end
-    return count
-  end
 
-local clock = 0
+-- local clock = 0
 function OnUpdate(self, elapsed)
     serializer.user_update()
     local t = cbor.encode(serializer.vals)
@@ -90,7 +77,7 @@ function OnUpdate(self, elapsed)
     header = checksum + bitshift_left(encode_size, 8)
     set_texture_from_arr(boxes[1], integerToColor(header))
     show_boxes(1+(#t/3))
-    clock = Modulo(clock+1, 64)
+    -- clock = Modulo(clock+1, 64)
 end
 
 init()
