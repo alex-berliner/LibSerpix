@@ -7,5 +7,4 @@
 
 cbor.lua
 util.lua
-serializer.lua
 LibSerpix.lua

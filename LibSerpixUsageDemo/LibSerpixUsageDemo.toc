@@ -1,6 +1,6 @@
 ## Interface: 100002
 ## Version: 10.0.7
-## Title: DemoLibSerpixUsage
+## Title: LibSerpixUsageDemo
 ## Author: Monorail
 ## Notes:
 ## SavedVariables:
@@ -9,4 +9,4 @@ libs\LibSerpix\cbor.lua
 libs\LibSerpix\util.lua
 libs\LibSerpix\serializer.lua
 libs\LibSerpix\LibSerpix.lua
-DemoLibSerpixUsage.lua
+LibSerpixUsageDemo.lua

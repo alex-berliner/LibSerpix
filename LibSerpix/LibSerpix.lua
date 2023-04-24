@@ -42,22 +42,22 @@ function create_boxes()
         p:Show()
         return p
     end
-    for i = 1, NUM_BOXES do
+    for i = 1, LIBSPX_NUM_BOXES do
         local space_bw_boxes = 1
         local x = (i-1) * (BOX_WIDTH + space_bw_boxes)
         e = create_box(BOX_WIDTH, BOX_HEIGHT, x, 0)
         e.Texture:SetColorTexture(1,1,1)
         boxes[i] = e
     end
-    boxes["active_boxes"] = NUM_BOXES
-    boxes["max_boxes"] = NUM_BOXES
+    boxes["active_boxes"] = LIBSPX_NUM_BOXES
+    boxes["max_boxes"] = LIBSPX_NUM_BOXES
 end
 
 function show_boxes(n)
     for i = 1, n do
         boxes[i]:Show()
     end
-    for i = n+1, NUM_BOXES do
+    for i = n+1, LIBSPX_NUM_BOXES do
         boxes[i]:Hide()
     end
     boxes["active_boxes"] = n

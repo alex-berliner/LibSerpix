@@ -1,11 +1,9 @@
 function init()
+    LibSerpix.register_addon("Demo")
     UIParent:SetScript("OnUpdate", OnUpdate)
     f = CreateFrame("Frame")
-    -- Register the OnCombatLogEvent function to
-    -- the COMBAT_LOG_EVENT_UNFILTERED event
     f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     f:SetScript("OnEvent", OnCombatLogEvent)
-    LibSerpix.register_addon("Demo")
 end
 
 -- Define the OnCombatLogEvent function
@@ -24,7 +22,7 @@ function CombatEventHandler(event, ...)
             LibSerpix.serializer.vals.u.Demo.tx_overhealing = (LibSerpix.serializer.vals.u.Demo.tx_overhealing or 0) + overhealing
             LibSerpix.serializer.vals.u.Demo.tx_healing = (LibSerpix.serializer.vals.u.Demo.tx_healing or 0) + healing - overhealing
             local questDescription, questObjectives = GetQuestLogQuestText()
-            LibSerpix.serializer.vals.u.Demo.questDescription = questObjectives
+            LibSerpix.serializer.vals.u.Demo.questDescription = questDescription
             LibSerpix.serializer.vals.u.Demo.questObjectives = questObjectives
 
         end

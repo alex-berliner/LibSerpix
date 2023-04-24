@@ -1,13 +1,12 @@
-MAX_PIXEL_SIZE = 256 * 256 * 256 - 1
-FLOAT_MAX = 9.99999
+local MAX_PIXEL_SIZE = 256 * 256 * 256 - 1
+local FLOAT_MAX = 9.99999
 
 -- max pixel boxes, most will usually be turned off.
 -- no cost to increasing this besides increased screen real estate
-BYTES_PER_BOX = 3
-HEADER_BYTES = 3
--- PAYLOAD_BYTES = 1533
-PAYLOAD_BYTES = 1533
-NUM_BOXES = (HEADER_BYTES + PAYLOAD_BYTES)/BYTES_PER_BOX
+local BYTES_PER_BOX = 3
+local HEADER_BYTES = 3
+local PAYLOAD_BYTES = 1533
+LIBSPX_NUM_BOXES = (HEADER_BYTES + PAYLOAD_BYTES)/BYTES_PER_BOX
 
 -- https://gist.github.com/Elemecca/6361899
 function hex_dump(str, len)
