@@ -20,6 +20,10 @@ tokio = {version = "1.23.0", features = ["full"]}
 win-screenshot = "3.0.1"
 winapi = { version = "0.3", features = ["winuser"] }
 windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps"] }
+tts = {version = "0.25.5", features = ["tolk"]}
 
 [profile.dev.package.win-screenshot]
+opt-level = 3
+
+[profile.dev.package.tts]
 opt-level = 3
