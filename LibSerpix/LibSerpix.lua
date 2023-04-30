@@ -22,11 +22,6 @@ function LibSerpix.add_data(namespace, data_table)
     LibSerpix.data_queue[#LibSerpix.data_queue + 1] = {namespace, data_table}
 end
 
-
-function LibSerpix.register_addon(addon_name)
-    addons[#addons+1] = addon_name
-end
-
 function create_boxes()
     local function create_box(w,h,x,y)
         p = CreateFrame("Frame", nil, UIParent)
@@ -58,10 +53,6 @@ function show_boxes(n)
         boxes[i]:Hide()
     end
     boxes["active_boxes"] = n
-end
-
-function poll_user_data()
-
 end
 
 function consume_message_queue()

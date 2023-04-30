@@ -1,5 +1,4 @@
 function init()
-    LibSerpix.register_addon("qtts")
     UIParent:SetScript("OnUpdate", OnUpdate)
     f = CreateFrame("Frame")
     -- f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
