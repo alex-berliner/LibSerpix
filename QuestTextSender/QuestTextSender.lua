@@ -10,19 +10,11 @@ function init()
 end
 
 function OnEvent(self, event, ...)
-    -- if event == "QUEST_ACCEPTED" then
-    --     local questID = ...
-    --     -- print(questID)
-    --     -- print(GetNumQuestLeaderBoards(questID))
-    --     local questDescription, questObjectives = GetQuestLogQuestText()
-    --     print(questDescription)
-    --     print(questObjectives)
-    --     -- local description, objectiveType, isCompleted = GetQuestLogLeaderBoard(i, questID)
-    --     -- print(description)
-    -- end
     if event == "QUEST_DETAIL" then
         print(GetQuestText())
-        LibSerpix.serializer.vals.u.qtts.questDescription = GetQuestText()
+        local questDescription = {}
+        questDescription["questDescription"] = GetQuestText()
+        LibSerpix.add_data("qtts", questDescription)
     end
 end
 

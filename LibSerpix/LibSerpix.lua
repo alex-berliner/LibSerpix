@@ -9,8 +9,7 @@ local cbor = get_cbor()
 
 LibSerpix = {}
 function init()
-    LibSerpix.encoding = false
-    LibSerpix.addons = {}
+    LibSerpix.data_queue = {}
     serializer = {}
     serializer.vals = {}
     serializer.vals.p = {}
@@ -19,38 +18,14 @@ function init()
     create_boxes()
 end
 
+function LibSerpix.add_data(namespace, data_table)
+    LibSerpix.data_queue[#LibSerpix.data_queue + 1] = {namespace, data_table}
+end
+
+
 function LibSerpix.register_addon(addon_name)
     addons[#addons+1] = addon_name
 end
-
--- function LibSerpix.register_addon2(addon_name, addon_function)
---     addons[#addons+1] = {addon_name, addon_function}
--- end
-
--- function LibSerpix.get_addon_function(addon_name)
---     for i = 1, #addons do
---         if addons[i][1] == addon_name then
---             return addons[i][2]
---         end
---     end
---     return nil -- addon not found
--- end
-
-function LibSerpix.unregister_addon(addon_name)
-    for i = #addons, 1, -1 do
-        if addons[i] == addon_name then
-            table.remove(addons, i)
-        end
-    end
-end
-
--- function LibSerpix.unregister_addon2(addon_name)
---     for i = #addons, 1, -1 do
---         if addons[i][1] == addon_name then
---             table.remove(addons, i)
---         end
---     end
--- end
 
 function create_boxes()
     local function create_box(w,h,x,y)
@@ -89,18 +64,25 @@ function poll_user_data()
 
 end
 
+function consume_message_queue()
+    local elem_cnt = #LibSerpix.data_queue
+    for i = 1, elem_cnt do
+        local data = LibSerpix.data_queue[i]
+        local namespace, data_table = unpack(data)
+        LibSerpix.serializer.vals.u[namespace] = data_table
+    end
+    for i = 1, elem_cnt do
+        table.remove(LibSerpix.data_queue, 1)
+    end
+end
+
 local clock = 0
 function OnUpdate(self, elapsed)
     serializer.vals.p.clock = clock
-    poll_user_data()
-    LibSerpix.encoding = true
+    consume_message_queue()
     local t = cbor.encode(serializer.vals)
     serializer.vals.u = {}
-    LibSerpix.encoding = false
     local checksum = 0
-    for i = 1, #addons do
-        serializer.vals.u[addons[i]] = {}
-    end
     -- pad serialized message to multiple of 3 bytes to align with the three rgb channels in a pixel
     encode_size = #t
     while (Modulo(#t, 3) ~= 0) do
