@@ -4,6 +4,7 @@ use rustc_serialize::json::ToJson;
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
+use tokio::task;
 use tokio::sync::mpsc::Sender;
 use std::time::Instant;
 use crate::*;
@@ -53,7 +54,7 @@ fn dump(a: &Vec<u8>) {
     for b in a.iter() {
         print!("{:#02X} ", b);
     }
-    println!("\n{} bytes summed", a.len());
+    eprintln!("\n{} bytes summed", a.len());
 }
 
 struct RxBytes {
@@ -180,10 +181,52 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
     Ok(serde_json::from_str(&c2j.to_string()).unwrap())
 }
 
+async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
+    // let duration = start.elapsed();
+    let frame = match frame_from_imgbuf(s) {
+        Ok(v) => v,
+        Err(e) => { eprintln!("frame decode error {}", e); return; },
+    };
+
+    let payload = match frame.get_payload() {
+        Err(e) => { frame.save(); return; },
+        Ok(v) => v,
+    };
+
+    let w = RxBytes::new(payload);
+    if frame.checksum != w.checksum {
+        eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
+            frame.checksum,
+            w.checksum);
+        if frame.checksum == w.checksum + 1 {
+            eprintln!("off by 1");
+            frame.save();
+        }
+        return;
+    }
+
+    let mut value: serde_json::Value = match cbor_parse(&w.b) {
+        Ok(v) => v,
+        Err(e) => {
+            frame.save();
+            eprintln!("{}", e);
+            return;
+        }
+    };
+
+    if value.is_object() {
+        match value.as_object_mut() {
+            None => { eprintln!("no private field, very fishy"); },
+            Some(v) => {v.remove_entry("p");},
+        };
+
+        tx.send(value).await.expect("json send failed");
+    }
+}
+
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
-    // let mut clock_old:u32 = u32::MAX;
-    // let mut total_packets = 0;
-    // let mut good_packets = 0;
+    let alpha = 0.1;
+    let mut avg_duration : f64 = 0.0;
     loop {
         match hwnd_exists(hwnd) {
             WindowStatus::Destroyed => break,
@@ -193,62 +236,16 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
             },
             _ => {},
         }
-        // total_packets += 1;
 
         let start = Instant::now();
         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
-        let duration = start.elapsed();
-        let frame = match frame_from_imgbuf(s) {
-            Ok(v) => v,
-            Err(e) => { println!("frame decode error {}", e); continue; },
-        };
-        // // if clock_old == frame.clock as u32 {
-        // //     total_packets -= 1;
-        // //     continue;
-        // // }
-        let w = RxBytes::new(frame.get_payload().unwrap());
-        if frame.checksum != w.checksum {
-            eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
-                frame.checksum,
-                w.checksum);
-            if frame.checksum == w.checksum + 1 {
-                println!("off by 1");
-                frame.save();
-            }
-            continue;
-        }
-        // good_packets += 1;
-        // eprintln!("{} {} {}",
-        //     1.0-((total_packets - good_packets) as f32) / total_packets as f32,
-        //     total_packets,
-        //     good_packets);
-        let mut value: serde_json::Value = match cbor_parse(&w.b) {
-            Ok(v) => v,
-            Err(e) => {
-                // frame.save();
-                eprintln!("{}", e);
-                continue;
-            }
-        };
-
-        // let clock = match value["p"]["clock"].as_u64() {
-        //     None => { println!("clock match failed"); continue; },
-        //     Some(v) => v as u32,
-        // };
-
-        if value.is_object() {
-            match value.as_object_mut() {
-                None => { eprintln!("no private field, very fishy"); },
-                Some(v) => {v.remove_entry("p");},
-            };
-
-            tx.send(value).await.expect("json send failed");
-        }
-        // clock_old = clock;
-        // if total_packets > 10000 {
-        //     total_packets = 0;
-        //     good_packets = 0;
-        // }
+        let tx_clone = tx.clone();
+        tokio::spawn(async move {
+            screen_proc(s, tx_clone).await;
+        });
+        let duration = start.elapsed().as_secs_f64();
+        avg_duration = alpha * duration + (1.0 - alpha) * avg_duration;
+        eprintln!("{:?}", avg_duration);
     }
 }
 
@@ -260,11 +257,11 @@ mod tests {
         let img = image::open("assets/longstring.png").unwrap();
         let frame = match frame_from_imgbuf(img.to_rgba8()) {
             Ok(v) => v,
-            Err(e) => { println!("frame decode error {}", e); assert!(false); return; },
+            Err(e) => { eprintln!("frame decode error {}", e); assert!(false); return; },
         };
         let w = RxBytes::new(frame.get_payload().unwrap());
         dump(&w.b);
-        println!("frame.size: {}", frame.size);
+        eprintln!("frame.size: {}", frame.size);
         if frame.checksum != w.checksum {
             eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
                 frame.checksum,
@@ -276,7 +273,7 @@ mod tests {
         let value: serde_json::Value = match cbor_parse(&w.b) {
             Ok(v) => v,
             Err(e) => {
-                println!("frame decode error {}", e);
+                eprintln!("frame decode error {}", e);
                 assert!(false);
                 return;
             },
