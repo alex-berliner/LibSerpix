@@ -10,7 +10,7 @@ use std::time::Instant;
 use crate::*;
 
 static CAPTURE_MAX_W: u32 = 900;
-static CAPTURE_MAX_H: u32 = 6;
+static CAPTURE_MAX_H: u32 = 8;
 
 fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
     let r = pixel[0] as u32;

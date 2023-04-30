@@ -3,6 +3,8 @@ local BOX_HEIGHT = 6
 -- pixel boxes that numbers are stored in
 -- stores rbg valuess that hold 0xFFFFFF each
 local boxes = {}
+local firstbox = {}
+local lastbox = {}
 local addons = {}
 local _, ADDONSELF = ...
 local cbor = get_cbor()
@@ -37,15 +39,53 @@ function create_boxes()
     for i = 1, LIBSPX_NUM_BOXES do
         local space_bw_boxes = 1
         local x = (i-1) * (BOX_WIDTH + space_bw_boxes)
-        e = create_box(BOX_WIDTH, BOX_HEIGHT, x, 0)
+        e = create_box(BOX_WIDTH, BOX_HEIGHT, x, 1)
         e.Texture:SetColorTexture(1,1,1)
         boxes[i] = e
     end
     boxes["active_boxes"] = LIBSPX_NUM_BOXES
     boxes["max_boxes"] = LIBSPX_NUM_BOXES
+
+    for i = 1, LIBSPX_NUM_BOXES do
+        local space_bw_boxes = 1
+        local x = (i-1) * (BOX_WIDTH + space_bw_boxes)
+        e = create_box(BOX_WIDTH, 1, x, 0)
+        e.Texture:SetColorTexture(1,1,1)
+        firstbox[i] = e
+        set_texture_from_arr(firstbox[i], rbgToColor(42,0,69))
+    end
+    firstbox["active_boxes"] = LIBSPX_NUM_BOXES
+    firstbox["max_boxes"] = LIBSPX_NUM_BOXES
+
+    for i = 1, LIBSPX_NUM_BOXES do
+        local space_bw_boxes = 1
+        local x = (i-1) * (BOX_WIDTH + space_bw_boxes)
+        e = create_box(BOX_WIDTH, 1, x, BOX_HEIGHT+1)
+        e.Texture:SetColorTexture(1,1,1)
+        lastbox[i] = e
+        set_texture_from_arr(lastbox[i], rbgToColor(42,0,69))
+    end
+    lastbox["active_boxes"] = LIBSPX_NUM_BOXES
+    lastbox["max_boxes"] = LIBSPX_NUM_BOXES
 end
 
 function show_boxes(n)
+    for i = 1, n do
+        firstbox[i]:Show()
+    end
+    for i = n+1, LIBSPX_NUM_BOXES do
+        firstbox[i]:Hide()
+    end
+    firstbox["active_boxes"] = n
+
+    for i = 1, n do
+        lastbox[i]:Show()
+    end
+    for i = n+1, LIBSPX_NUM_BOXES do
+        lastbox[i]:Hide()
+    end
+    lastbox["active_boxes"] = n
+
     for i = 1, n do
         boxes[i]:Show()
     end
