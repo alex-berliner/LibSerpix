@@ -5,3 +5,6 @@ target/
 *jpg
 *bmp
 copy_to_wow.bat
+tts/ttsvenv/
+*.mp3
+*.wav
