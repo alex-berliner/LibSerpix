@@ -47,7 +47,7 @@ fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
     if most_common_count >= 3 {
         Ok(*most_common_pixel)
     } else {
-        Err("FRAME: Not at least 3 pixels are the same")
+        Err("Not at least 3 pixels are the same")
     }
 }
 
@@ -264,14 +264,115 @@ fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Op
 
     None
 }
+fn pixel_validate_get2(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str> {
+    let pixel_counts =
+        pixels.iter().fold(std::collections::HashMap::new(), |mut acc, &x| {
+            *acc.entry(x).or_insert(0) += 1;
+            acc
+        });
+
+    let (most_common_pixel, most_common_count) = pixel_counts.iter()
+        .max_by_key(|&(_, count)| count)
+        .map(|(pixel, count)| (*pixel, *count))
+        .unwrap();
+
+    if most_common_count >= 3 {
+        Ok(most_common_pixel)
+    } else {
+        Err("Not at least 3 pixels are the same")
+    }
+}
+
 
 mod tests {
     use super::*;
+    use image::GenericImageView;
 
     #[tokio::test]
     async fn find_key_start_test() {
-        let img = image::open("assets/purple.bmp").unwrap().into_rgba8();
+        let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
         assert_eq!(Some((9,38)), find_key_start(&img, [42,0,69]));
+    }
+
+    #[tokio::test]
+    async fn test_frame_from_imgbuf2_success() {
+        let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
+        let loc = match find_key_start(&img, [42, 0, 69]) {
+            None => { println!("No key start"); return; },
+            Some(v) => v,
+        };
+        let img = img.view(loc.0, loc.1, img.width()-loc.0, img.height()-loc.1).to_image();
+        // get x coords of colums that start and end with [42,0,69]
+        let header = Rgba([42, 0, 69, 255]);
+        let pixels_vec: Vec<_> = (0..img.width())
+            .filter_map(|x|
+                if  img.get_pixel(x, 0) == &header &&
+                    img.get_pixel(x, CAPTURE_MAX_H+1) == &header {
+                    // println!("{:?}", img.get_pixel(x, 1));
+                    let column: Vec<_> = (1..CAPTURE_MAX_H).map(|y| *img.get_pixel(x, y)).collect();
+                    Some(column)
+                } else {
+                    None
+                }
+            ).collect();
+
+        let pixels = (0..pixels_vec.len()).map(|x|
+            pixel_validate_get2(&pixels_vec[x])
+        ).collect::<Result<Vec<_>, _>>();
+
+        let pixels = match pixels {
+            Ok(v) => {
+                v
+            }
+            Err(e) => {
+                println!("Error: {}", e);
+                return;
+            }
+        };
+        assert_eq!(7, pixels.len());
+        println!("{} {:?}", pixels.len(), pixels);
+    }
+
+    #[tokio::test]
+    async fn test_frame_from_imgbuf2_failure() {
+        let img = image::open("assets/windowed_invalid_header.bmp").unwrap().into_rgba8();
+        let loc = match find_key_start(&img, [42, 0, 69]) {
+            None => { println!("No key start"); return; },
+            Some(v) => v,
+        };
+        let img = img.view(loc.0, loc.1, img.width()-loc.0, img.height()-loc.1).to_image();
+        // get x coords of colums that start and end with [42,0,69]
+        let header = Rgba([42, 0, 69, 255]);
+        let pixels_vec: Vec<_> = (0..img.width())
+            .filter_map(|x|
+                if  img.get_pixel(x, 0) == &header &&
+                    img.get_pixel(x, CAPTURE_MAX_H+1) == &header {
+                    // println!("{:?}", img.get_pixel(x, 1));
+                    let column: Vec<_> = (1..CAPTURE_MAX_H).map(|y| *img.get_pixel(x, y)).collect();
+                    Some(column)
+                } else {
+                    None
+                }
+            ).collect();
+
+        let pixels = (0..pixels_vec.len()).map(|x|
+            pixel_validate_get2(&pixels_vec[x])
+        ).collect::<Result<Vec<_>, _>>();
+
+        let pixels = match pixels {
+            Ok(v) => {
+                // do something with v
+                println!("{:?}", v);
+                v
+            }
+            Err(e) => {
+                // handle the error
+                println!("Error: {}", e);
+                return;
+            }
+        };
+        assert_eq!(7, pixels.len());
+        println!("{} {:?}", pixels.len(), pixels);
     }
 
     #[tokio::test]
