@@ -59,21 +59,9 @@ fn dump(a: &Vec<u8>) {
     eprintln!("\n{} bytes summed", a.len());
 }
 
-struct RxBytes {
-    b: Vec<u8>,
-    checksum: u8,
-}
-
-impl RxBytes {
-    pub fn new(b: Vec<u8>) -> Self {
-        let checksum = b.iter().fold(0, |acc, x| (acc + *x as u32)%256) as u8;
-        Self { b, checksum }
-    }
-}
-
 struct Frame {
-    checksum: u8,
-    payload: Vec<Rgba<u8>>,
+    size: u16,
+    pixels: Vec<u8>,
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
@@ -89,15 +77,25 @@ impl Frame {
     }
 
     fn new(img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Frame, &'static str> {
-        let pixels = match Self::get_payload_pixels(&img) {
+        let payload_pixels = match Self::get_payload_pixels(&img) {
             Err(e) => { return Err(e); } ,
             Ok(v) => v
         };
-        let header = color_to_integer(&pixels[0]);
+        let header = color_to_integer(&payload_pixels[0]);
         let (size, checksum_rx) = decode_header(header);
+        let pixels = match Self::get_payload(payload_pixels, size) {
+            Err(e) => { return Err(e); },
+            Ok(v) => v
+        };
+        eprintln!("size {}", size);
+        let checksum_calc = pixels.iter().fold(0, |acc, x| (acc + *x as u32)%256) as u8;
+        if checksum_rx != checksum_calc {
+            eprintln!("Checksum mismatch {} {}", checksum_rx, checksum_calc);
+            return Err("Checksum mismatch");
+        }
         Ok(Frame {
-            checksum: checksum_rx,
-            payload: pixels,
+            size: size,
+            pixels: pixels,
             img: img
         })
     }
@@ -134,26 +132,18 @@ impl Frame {
         pixels
     }
 
-    // fn get_payload(&self) -> Result<Vec<u8>, &'static str> {
-    //     let myvec = match self.get_payload_pixels() {
-    //         Ok(o) => o,
-    //         Err(e) => {
-    //             eprintln!("payload err {}", e);
-    //             return Err("payload err");
-    //         }
-    //     };
-    //     let mut bytevec: Vec<u8> = Vec::new();
-    //     for p in myvec.iter() {
-    //         bytevec.push(p[0]);
-    //         bytevec.push(p[1]);
-    //         bytevec.push(p[2]);
-    //     }
-    //     // remove padding bytes
-    //     while bytevec.len() != self.size as usize{
-    //         bytevec.pop();
-    //     }
-    //     Ok(bytevec)
-    // }
+    fn get_payload(myvec: Vec<Rgba<u8>>, size: u16) -> Result<Vec<u8>, &'static str> {
+        let mut bytevec: Vec<u8> = Vec::new();
+        for p in myvec.iter() {
+            bytevec.push(p[0]);
+            bytevec.push(p[1]);
+            bytevec.push(p[2]);
+        }
+        while bytevec.len() != size as usize{
+            bytevec.pop();
+        }
+        Ok(bytevec)
+    }
 }
 
 fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
@@ -162,24 +152,6 @@ fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
         ImageBuffer::from_raw(buf.width, buf.height, buf.pixels).unwrap();
     crop_imm(&img, 0, 0, w, h).to_image()
 }
-
-// fn frame_from_imgbuf(img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Frame, &'static str> {
-//     let pixel = match pixel_validate_get(&img, 0, CAPTURE_MAX_H) {
-//         Ok(o) => o,
-//         Err(e) => {
-//             return Err("bad header pixel".into());
-//         }
-//     };
-//     let header = color_to_integer(&pixel);
-//     let (size, checksum_rx) = decode_header(header);
-//     Ok(Frame {
-//         size: size,
-//         checksum: checksum_rx,
-//         height: CAPTURE_MAX_H,
-//         // clock: clock,
-//         img: img
-//     })
-// }
 
 fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
     let mut d = Decoder::from_bytes(b.clone());
@@ -200,52 +172,30 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
     Ok(serde_json::from_str(&c2j.to_string()).unwrap())
 }
 
-// async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
-//     // // let duration = start.elapsed();
-//     // let frame = match frame_from_imgbuf(s) {
-//     //     Ok(v) => v,
-//     //     Err(e) => { eprintln!("frame decode error {}", e); return; },
-//     // };
-//     let frame = match Frame::new(s) {
-//         Ok(v) => v,
-//         Err(e) => { eprintln!("frame decode error {}", e); return; },
-//     };
+async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
+    let frame = match Frame::new(s) {
+        Ok(v) => v,
+        Err(e) => { eprintln!("frame decode error {}", e); return; },
+    };
 
-//     let payload = match frame.get_payload() {
-//         Err(e) => { frame.save(); return; },
-//         Ok(v) => v,
-//     };
+    let mut value: serde_json::Value = match cbor_parse(&frame.pixels) {
+        Ok(v) => v,
+        Err(e) => {
+            frame.save();
+            eprintln!("{}", e);
+            return;
+        }
+    };
 
-//     let w = RxBytes::new(payload);
-//     if frame.checksum != w.checksum {
-//         eprintln!("checksum doesn't match rx {:#02X} calc {:#02X}",
-//             frame.checksum,
-//             w.checksum);
-//         if frame.checksum == w.checksum + 1 {
-//             eprintln!("off by 1");
-//             frame.save();
-//         }
-//         return;
-//     }
+    if value.is_object() {
+        match value.as_object_mut() {
+            None => { eprintln!("no private field, very fishy"); },
+            Some(v) => {v.remove_entry("p");},
+        };
 
-//     let mut value: serde_json::Value = match cbor_parse(&w.b) {
-//         Ok(v) => v,
-//         Err(e) => {
-//             frame.save();
-//             eprintln!("{}", e);
-//             return;
-//         }
-//     };
-
-//     if value.is_object() {
-//         match value.as_object_mut() {
-//             None => { eprintln!("no private field, very fishy"); },
-//             Some(v) => {v.remove_entry("p");},
-//         };
-
-//         tx.send(value).await.expect("json send failed");
-//     }
-// }
+        tx.send(value).await.expect("json send failed");
+    }
+}
 
 // pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
 //     let alpha = 0.1;
@@ -398,8 +348,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_frame_success() {
-        let img = image::open("assets/windowed_invalid_header.bmp").unwrap().into_rgba8();
-        let f = Frame::new(img);
+        let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
+        let f = Frame::new(img).unwrap();
     }
 }
 
