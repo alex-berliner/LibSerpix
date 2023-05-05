@@ -67,12 +67,12 @@ struct Frame {
 
 impl Frame {
     #[allow(dead_code)]
-    fn save(&self) {
+    fn save(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) {
         let posix_time =
             SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut file_name = posix_time.to_string();
         file_name.push_str(".bmp");
-        self.img.save(&file_name).unwrap();
+        img.save(&file_name).unwrap();
         eprintln!("Save {}", file_name);
     }
 
@@ -102,10 +102,15 @@ impl Frame {
 
     fn get_payload_pixels(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Vec<Rgba<u8>>, &'static str> {
         let loc = match find_key_start(&img, [42, 0, 69]) {
-            None => { println!("No key start"); return Err("MAKE ERROR HERE"); },
+            None => {
+                println!("No key start");
+                Frame::save(&img);
+                return Err("MAKE ERROR HERE");
+            },
             Some(v) => v,
         };
-        let img = img.view(loc.0, loc.1, img.width()-loc.0, img.height()-loc.1).to_image();
+        let img = crop_imm(img, loc.0, loc.1, img.width()-loc.0, img.height()-loc.1).to_image();
+        eprintln!("{} {}", img.width(), img.height());
         // get x coords of colums that start and end with [42,0,69]
         let header_pixel = Rgba([42, 0, 69, 255]);
         let pixels_vec: Vec<_> = (0..img.width())
@@ -118,7 +123,10 @@ impl Frame {
                     None
                 }
             ).collect();
-
+        if pixels_vec.len() < 1 {
+            Frame::save(&img);
+            return Err("No pixels detected in frame");
+        }
         let rx_header_pixel = match pixel_validate_get2(&pixels_vec[0]){
              Err(e) => { return Err("Invalid header_pixel column"); }
              Ok(v) => v,
@@ -150,7 +158,8 @@ fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let buf = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).unwrap();
     let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(buf.width, buf.height, buf.pixels).unwrap();
-    crop_imm(&img, 0, 0, w, h).to_image()
+    // crop_imm(&img, 0, 0, w, h).to_image()
+    img
 }
 
 fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
@@ -181,7 +190,7 @@ async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::V
     let mut value: serde_json::Value = match cbor_parse(&frame.pixels) {
         Ok(v) => v,
         Err(e) => {
-            frame.save();
+            Frame::save(&frame.img);
             eprintln!("{}", e);
             return;
         }
@@ -197,30 +206,30 @@ async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::V
     }
 }
 
-// pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
-//     let alpha = 0.1;
-//     let mut avg_duration : f64 = 0.0;
-//     loop {
-//         match hwnd_exists(hwnd) {
-//             WindowStatus::Destroyed => break,
-//             WindowStatus::Minimized => {
-//                 thread::sleep(Duration::from_millis(1));
-//                 continue;
-//             },
-//             _ => {},
-//         }
+pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
+    let alpha = 0.1;
+    let mut avg_duration : f64 = 0.0;
+    loop {
+        match hwnd_exists(hwnd) {
+            WindowStatus::Destroyed => break,
+            WindowStatus::Minimized => {
+                thread::sleep(Duration::from_millis(1));
+                continue;
+            },
+            _ => {},
+        }
 
-//         let start = Instant::now();
-//         let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H as u32);
-//         let tx_clone = tx.clone();
-//         tokio::spawn(async move {
-//             screen_proc(s, tx_clone).await;
-//         });
-//         let duration = start.elapsed().as_secs_f64();
-//         avg_duration = alpha * duration + (1.0 - alpha) * avg_duration;
-//         eprintln!("{:?}", avg_duration);
-//     }
-// }
+        let start = Instant::now();
+        let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H+1 as u32);
+        let tx_clone = tx.clone();
+        tokio::spawn(async move {
+            screen_proc(s, tx_clone).await;
+        });
+        let duration = start.elapsed().as_secs_f64();
+        avg_duration = alpha * duration + (1.0 - alpha) * avg_duration;
+        eprintln!("{:?}", avg_duration);
+    }
+}
 
 fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Option<(u32, u32)> {
     let (width, height) = buffer.dimensions();
@@ -351,5 +360,11 @@ mod tests {
         let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
         let f = Frame::new(img).unwrap();
     }
+
+    // #[tokio::test]
+    // async fn test_frame_get_payload_pixels_failure() {
+    //     let img = image::open("assets/failing_on_live.bmp").unwrap().into_rgba8();
+    //     println!("{}", Frame::get_payload_pixels(&img).unwrap_err());
+    // }
 }
 
