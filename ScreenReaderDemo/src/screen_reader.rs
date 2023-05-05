@@ -81,13 +81,13 @@ impl Frame {
             Err(e) => { return Err(e); } ,
             Ok(v) => v
         };
-        let header = color_to_integer(&payload_pixels[0]);
+        let header = color_to_integer(&payload_pixels[1]);
         let (size, checksum_rx) = decode_header(header);
-        let pixels = match Self::get_payload(payload_pixels, size) {
+
+        let pixels = match Self::get_payload(payload_pixels[2..payload_pixels.len()].into(), size) {
             Err(e) => { return Err(e); },
-            Ok(v) => v
+            Ok(v) => { v}
         };
-        eprintln!("size {}", size);
         let checksum_calc = pixels.iter().fold(0, |acc, x| (acc + *x as u32)%256) as u8;
         if checksum_rx != checksum_calc {
             eprintln!("Checksum mismatch {} {}", checksum_rx, checksum_calc);
@@ -110,7 +110,6 @@ impl Frame {
             Some(v) => v,
         };
         let img = crop_imm(img, loc.0, loc.1, img.width()-loc.0, img.height()-loc.1).to_image();
-        eprintln!("{} {}", img.width(), img.height());
         // get x coords of colums that start and end with [42,0,69]
         let header_pixel = Rgba([42, 0, 69, 255]);
         let pixels_vec: Vec<_> = (0..img.width())
@@ -123,6 +122,7 @@ impl Frame {
                     None
                 }
             ).collect();
+        // eprintln!("pixels_vec.len() {}", pixels_vec.len());
         if pixels_vec.len() < 1 {
             Frame::save(&img);
             return Err("No pixels detected in frame");
@@ -132,9 +132,10 @@ impl Frame {
              Ok(v) => v,
         };
         if rx_header_pixel != header_pixel {
+            Frame::save(&img);
             return Err("rx_header_pixel was not 42069!");
         }
-        let pixels = (1..pixels_vec.len()).map(|x|
+        let pixels = (0..pixels_vec.len()).map(|x|
             pixel_validate_get2(&pixels_vec[x])
         ).collect::<Result<Vec<_>, _>>();
         pixels
@@ -147,7 +148,8 @@ impl Frame {
             bytevec.push(p[1]);
             bytevec.push(p[2]);
         }
-        while bytevec.len() != size as usize{
+        println!("{} {}", bytevec.len(), size);
+        while bytevec.len() != size as usize {
             bytevec.pop();
         }
         Ok(bytevec)
@@ -158,7 +160,6 @@ fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let buf = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).unwrap();
     let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(buf.width, buf.height, buf.pixels).unwrap();
-    // crop_imm(&img, 0, 0, w, h).to_image()
     img
 }
 
@@ -227,7 +228,8 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         });
         let duration = start.elapsed().as_secs_f64();
         avg_duration = alpha * duration + (1.0 - alpha) * avg_duration;
-        eprintln!("{:?}", avg_duration);
+        // eprintln!("{:?}", avg_duration);
+        // return;
     }
 }
 
@@ -245,6 +247,7 @@ fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Op
 
     None
 }
+
 fn pixel_validate_get2(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str> {
     let pixel_counts =
         pixels.iter().fold(std::collections::HashMap::new(), |mut acc, &x| {

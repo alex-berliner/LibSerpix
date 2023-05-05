@@ -121,6 +121,7 @@ function OnUpdate(self, elapsed)
     end
     -- pack string bytes into pixels
     -- cbor table isn't ordered so keep header as first pixel
+    local j = 0
     for i = 1, #t, 3 do
         local r = string.byte(t, i)
         checksum = Modulo(checksum+r, 256)
@@ -129,13 +130,18 @@ function OnUpdate(self, elapsed)
         local b = string.byte(t, i+2)
         checksum = Modulo(checksum+b, 256)
         box_index = math.floor(i/3)+1
-        box_index = box_index + 1 -- added for header
-        set_texture_from_arr(boxes[box_index], rbgToColor(r,g,b))
+        print(j)
+        j = j + 1
+        set_texture_from_arr(boxes[box_index+2], rbgToColor(r,g,b))
     end
     header = checksum + bitshift_left(encode_size, 8)
-    set_texture_from_arr(boxes[1], integerToColor(header))
-    show_boxes(1+(#t/3))
-    clock = Modulo(clock+1, 64)
+    -- print(hex_dump(t, #t))
+    -- print("header " .. checksum)
+    print("size "..encode_size)
+    set_texture_from_arr(boxes[1], rbgToColor(42,0,69))
+    set_texture_from_arr(boxes[2], integerToColor(header))
+    show_boxes(2+(#t/3))
+    clock = 0 -- Modulo(clock+1, 64)
 end
 
 init()
