@@ -130,14 +130,10 @@ function OnUpdate(self, elapsed)
         local b = string.byte(t, i+2)
         checksum = Modulo(checksum+b, 256)
         box_index = math.floor(i/3)+1
-        print(j)
         j = j + 1
         set_texture_from_arr(boxes[box_index+2], rbgToColor(r,g,b))
     end
     header = checksum + bitshift_left(encode_size, 8)
-    -- print(hex_dump(t, #t))
-    -- print("header " .. checksum)
-    print("size "..encode_size)
     set_texture_from_arr(boxes[1], rbgToColor(42,0,69))
     set_texture_from_arr(boxes[2], integerToColor(header))
     show_boxes(2+(#t/3))

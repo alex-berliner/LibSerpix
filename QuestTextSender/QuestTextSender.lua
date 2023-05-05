@@ -10,7 +10,7 @@ end
 
 function OnEvent(self, event, ...)
     if event == "QUEST_DETAIL" then
-        print(GetQuestText())
+        -- print(GetQuestText())
         local questDescription = {}
         questDescription["questDescription"] = GetQuestText()
         LibSerpix.add_data("qtts", questDescription)

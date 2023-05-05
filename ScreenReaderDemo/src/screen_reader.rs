@@ -91,6 +91,7 @@ impl Frame {
         let checksum_calc = pixels.iter().fold(0, |acc, x| (acc + *x as u32)%256) as u8;
         if checksum_rx != checksum_calc {
             eprintln!("Checksum mismatch {} {}", checksum_rx, checksum_calc);
+            Frame::save(&img);
             return Err("Checksum mismatch");
         }
         Ok(Frame {
@@ -112,21 +113,29 @@ impl Frame {
         let img = crop_imm(img, loc.0, loc.1, img.width()-loc.0, img.height()-loc.1).to_image();
         // get x coords of colums that start and end with [42,0,69]
         let header_pixel = Rgba([42, 0, 69, 255]);
-        let pixels_vec: Vec<_> = (0..img.width())
+        let pixels_vec_tup: Vec<(u32, Vec<Rgba<u8>>)> = (0..img.width()-1)
             .filter_map(|x|
                 if  img.get_pixel(x, 0) == &header_pixel &&
                     img.get_pixel(x, CAPTURE_MAX_H+1) == &header_pixel {
-                    let column: Vec<_> = (1..CAPTURE_MAX_H).map(|y| *img.get_pixel(x, y)).collect();
-                    Some(column)
+                    let column: Vec<_> = (1..CAPTURE_MAX_H).filter_map(|y|
+                        Some(*img.get_pixel(x, y))
+                    ).collect();
+                    Some((x, column))
                 } else {
                     None
                 }
             ).collect();
-        // eprintln!("pixels_vec.len() {}", pixels_vec.len());
-        if pixels_vec.len() < 1 {
-            Frame::save(&img);
-            return Err("No pixels detected in frame");
-        }
+        let pixels_vec: Vec<_> = (0..pixels_vec_tup.len()).filter_map(|i| {
+            if (i == pixels_vec_tup.len() - 1) ||
+                // sometimes wow draws a 1-pixel column as a 2-pixel column,
+                // so throw that out here
+                pixels_vec_tup[i].0+1 != pixels_vec_tup[i+1].0 {
+                // ok to convert this to copy if it causes problems later
+                Some(&pixels_vec_tup[i].1)
+            } else {
+                None
+            }
+        }).collect();
         let rx_header_pixel = match pixel_validate_get2(&pixels_vec[0]){
              Err(e) => { return Err("Invalid header_pixel column"); }
              Ok(v) => v,
@@ -135,9 +144,9 @@ impl Frame {
             Frame::save(&img);
             return Err("rx_header_pixel was not 42069!");
         }
-        let pixels = (0..pixels_vec.len()).map(|x|
+        let pixels = (0..pixels_vec.len()).map(|x| {
             pixel_validate_get2(&pixels_vec[x])
-        ).collect::<Result<Vec<_>, _>>();
+        } ).collect::<Result<Vec<_>, _>>();
         pixels
     }
 
@@ -148,7 +157,7 @@ impl Frame {
             bytevec.push(p[1]);
             bytevec.push(p[2]);
         }
-        println!("{} {}", bytevec.len(), size);
+        // println!("{} {}", bytevec.len(), size);
         while bytevec.len() != size as usize {
             bytevec.pop();
         }
@@ -183,9 +192,10 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
 }
 
 async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
+    let x = s.clone();
     let frame = match Frame::new(s) {
         Ok(v) => v,
-        Err(e) => { eprintln!("frame decode error {}", e); return; },
+        Err(e) => { eprintln!("frame decode error {}", e); Frame::save(&x); return; },
     };
 
     let mut value: serde_json::Value = match cbor_parse(&frame.pixels) {
@@ -249,6 +259,10 @@ fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Op
 }
 
 fn pixel_validate_get2(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str> {
+    if pixels.len() < 1 {
+        return Err("pixels array empty");
+    }
+    // println!("{:?}", pixels);
     let pixel_counts =
         pixels.iter().fold(std::collections::HashMap::new(), |mut acc, &x| {
             *acc.entry(x).or_insert(0) += 1;
@@ -258,7 +272,7 @@ fn pixel_validate_get2(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str>
     let (most_common_pixel, most_common_count) = pixel_counts.iter()
         .max_by_key(|&(_, count)| count)
         .map(|(pixel, count)| (*pixel, *count))
-        .unwrap();
+        .ok_or("no max?")?;
 
     if most_common_count >= 3 {
         Ok(most_common_pixel)
