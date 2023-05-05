@@ -26,6 +26,7 @@ fn decode_header(header: u32) -> (u16, u8) {
     (size, checksum)
 }
 
+// validate one pixel
 fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
                                             -> Result<Rgba<u8>, &'static str> {
     let pixels = (0..height)
@@ -249,8 +250,29 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     }
 }
 
+fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Option<(u32, u32)> {
+    let (width, height) = buffer.dimensions();
+
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = buffer.get_pixel(x, y);
+            if pixel[0] == color[0] && pixel[1] == color[1] && pixel[2] == color[2] {
+                return Some((x, y));
+            }
+        }
+    }
+
+    None
+}
+
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn find_key_start_test() {
+        let img = image::open("assets/purple.bmp").unwrap().into_rgba8();
+        assert_eq!(Some((9,38)), find_key_start(&img, [42,0,69]));
+    }
 
     #[tokio::test]
     async fn test_profile_region_screenshot() {
