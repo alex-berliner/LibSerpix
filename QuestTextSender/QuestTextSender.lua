@@ -11,30 +11,26 @@ function init()
 end
 
 function OnEvent(self, event, ...)
+    local data = {}
     if event == "QUEST_DETAIL" then
-        local questText = {}
-        questText["questText"] = GetQuestText()
-        -- print(questText["questText"])
-        LibSerpix.add_data("qtts", questText)
+        data["questText"] = GetQuestText()
+        data["gossipText"] = GetQuestText()
+        -- print(data["questText"])
     end
-    if event == "GOSSIP_SHOW"
-        local gossipText = {}
-        gossipText["gossipText"] = GetGossipText()
-        -- print(gossipText["gossipText"])
-        LibSerpix.add_data("qtts", gossipText)
+    if event == "GOSSIP_SHOW" then
+        data["gossipText"] = GetGossipText()
+        -- print(data["gossipText"])
     end
-    if event == "QUEST_PROGRESS"
-        local progressText = {}
-        progressText["progressText"] = GetProgressText()
-        -- print(progressText["progressText"])
-        LibSerpix.add_data("qtts", progressText)
+    if event == "QUEST_PROGRESS" then
+        data["progressText"] = GetProgressText()
+        -- print(data["progressText"])
     end
     if event == "QUEST_COMPLETE" then
-        local rewardText = {}
-        rewardText["rewardText"] = GetRewardText()
-        -- print(rewardText["rewardText"])
-        LibSerpix.add_data("qtts", rewardText)
+        data["rewardText"] = GetRewardText()
+        -- print(data["rewardText"])
     end
+    LibSerpix.add_data("qtts", data)
+
 end
 
 init()
