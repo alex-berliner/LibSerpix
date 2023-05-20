@@ -14,7 +14,6 @@ function OnEvent(self, event, ...)
     local data = {}
     if event == "QUEST_DETAIL" then
         data["questText"] = GetQuestText()
-        data["gossipText"] = GetQuestText()
         -- print(data["questText"])
     end
     if event == "GOSSIP_SHOW" then

@@ -13,6 +13,7 @@ def read_output(proc):
             qd = ""
             for k in data["u"]["qtts"]:
                 qd += data["u"]["qtts"][k]
+            print(qd)
             tts = gTTS(qd, 'com')
             tts.save("out.mp3")
             p = multiprocessing.Process(target=playsound, args=("out.mp3",))
@@ -20,7 +21,6 @@ def read_output(proc):
 
 if __name__ == '__main__':
     proc = None
-    print('C:\\Users\\%s\\Code\\LibSerpix\\ScreenReaderDemo\\target\\release\\wow.exe'%os.getenv('USERNAME'))
     if os.path.isfile("wow.exe"):
         proc = subprocess.Popen(['wow.exe'], stdout=subprocess.PIPE)
     else:
