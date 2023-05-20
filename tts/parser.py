@@ -9,8 +9,8 @@ import os
 def read_output(proc):
     for line in iter(proc.stdout.readline, b''):
         data = json.loads(line.decode('utf-8'))
-        print(data)
         if "u" in data and "qtts" in data["u"] and len(data["u"]["qtts"]) > 0:
+            print(data)
             qd = data["u"]["qtts"]["questDescription"]
             print(data["u"]["qtts"]["questDescription"])
             tts = gTTS(qd, 'com')

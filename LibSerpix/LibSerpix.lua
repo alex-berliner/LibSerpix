@@ -1,3 +1,6 @@
+local MAJOR, MINOR = "LibSerpix-0.1", 0
+local LibSerpix = LibStub:NewLibrary(MAJOR, MINOR)
+
 local BOX_WIDTH = 1
 local BOX_HEIGHT = 6
 -- pixel boxes that numbers are stored in
@@ -9,7 +12,6 @@ local addons = {}
 local _, ADDONSELF = ...
 local cbor = get_cbor()
 
-LibSerpix = {}
 function init()
     LibSerpix.data_queue = {}
     serializer = {}
